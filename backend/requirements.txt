@@ -3,6 +3,7 @@ uvicorn[standard]>=0.34.0
 sqlmodel>=0.0.24
 alembic>=1.14.0
 openai>=1.0.0
+langchain-core>=0.3.0
 langchain-openai>=0.3.0
 chromadb>=0.6.0
 python-multipart>=0.0.20
