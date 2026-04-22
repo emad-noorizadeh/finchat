@@ -1,0 +1,116 @@
+{
+  "name": "refund_fee_chat",
+  "agent_name": "refund_fee",
+  "display_name": "Fee Refund (Chat)",
+  "channel": "chat",
+  "template_schema_version": 1,
+  "is_regulated": true,
+  "supported_channels": ["chat"],
+  "suspend_resume_allowed": false,
+  "locked_for_business_user_edit": true,
+  "unsupported_channel_message": "Fee refunds aren't available on this channel — please use chat or the mobile app.",
+  "entry_node": "parse_open",
+
+  "nodes": [
+    {
+      "id": "parse_open",
+      "type": "parse_node",
+      "data": {
+        "label": "Extract intent",
+        "mode": "llm",
+        "source": "last_user_message",
+        "llm_variant": "sub_agent",
+        "system_prompt": "You are a strict intent extractor for a credit-card fee-refund sub-agent. You do not chat or explain — you only extract the fields below.\n\n## Task\nRead the user's message and extract the two fields. If the user did not mention a field, set it to null.\n\n## Fields\n- `fee_type_hint` (string | null) — Free-text hint about which fee the user wants refunded. Accept: 'late fee', 'late', 'cash advance', 'cash advance interest', 'finance charge', 'interest', 'annual fee', 'foreign transaction'. Preserve the user's phrasing.\n- `amount_hint` (number | null) — USD amount they mentioned, if any. Strip '$', commas, 'dollars'. Must be > 0 or null.\n\n## Rules\n- Never guess. If the user just said \"refund a fee\" without specifying type, both fields are null.\n- If the message is not a refund request at all, return all nulls.\n\n## Examples\n- User: \"refund my late fee\" → `{fee_type_hint: \"late fee\", amount_hint: null}`\n- User: \"Can you refund the $28 late fee?\" → `{fee_type_hint: \"late fee\", amount_hint: 28}`\n- User: \"I want my cash advance interest back\" → `{fee_type_hint: \"cash advance interest\", amount_hint: null}`\n- User: \"refund a fee\" → `{fee_type_hint: null, amount_hint: null}`\n- User: \"what's my balance\" → all nulls (balance question, not a refund)",
+        "output_schema": {
+          "fee_type_hint": {"type": "string", "nullable": true},
+          "amount_hint":   {"type": "number", "nullable": true}
+        },
+        "writes": {
+          "fee_type_hint": "fee_type_hint",
+          "amount_hint":   "amount_hint"
+        }
+      }
+    },
+
+    {"id": "dispatch", "type": "condition_node", "data": {"label": "Dispatch (deterministic)"}},
+
+    {
+      "id": "load_fees",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Load eligible fees",
+        "tool": "refund",
+        "action": "list_fees",
+        "params": {},
+        "output_var": "fees",
+        "on_error": "abort"
+      }
+    },
+
+    {
+      "id": "response_form",
+      "type": "response_node",
+      "data": {
+        "label": "Show refund form",
+        "return_mode": "widget",
+        "widget": {
+          "widget_type": "refund_form",
+          "title": "Request a fee refund",
+          "data_template": {
+            "account_details":        "{{variables.fees.accountDetails}}",
+            "refundable_transactions": "{{variables.fees.refundableTransactions}}",
+            "total_amount":           "{{variables.fees.totalRefundableAmount}}",
+            "fee_type_hint":          "{{variables.fee_type_hint}}",
+            "amount_hint":            "{{variables.amount_hint}}"
+          },
+          "metadata": {"flow": "chat"}
+        }
+      }
+    },
+
+    {
+      "id": "response_no_fees",
+      "type": "response_node",
+      "data": {
+        "label": "No refundable fees",
+        "return_mode": "to_orchestrator",
+        "text_template": "I don't see any refundable fees on your account right now. If you were recently charged a late fee or finance charge, it may take a few days to become eligible."
+      }
+    },
+
+    {
+      "id": "response_escape",
+      "type": "response_node",
+      "data": {
+        "label": "User aborted / topic-change",
+        "is_escape_target": true,
+        "return_mode": "to_orchestrator",
+        "text_template": "Okay, leaving the refund flow."
+      }
+    },
+
+    {
+      "id": "response_failed",
+      "type": "response_node",
+      "data": {
+        "label": "Couldn't load fees",
+        "return_mode": "to_orchestrator",
+        "text_template": "I wasn't able to look up your fees right now. Please try again in a moment."
+      }
+    }
+  ],
+
+  "edges": [
+    {"source": "parse_open", "target": "dispatch"},
+
+    {"source": "dispatch", "target": "response_failed",
+     "predicate": "has(variables.fees) && variables.fees.status == 'ERROR'"},
+    {"source": "dispatch", "target": "load_fees",
+     "predicate": "!has(variables.fees)"},
+    {"source": "dispatch", "target": "response_no_fees",
+     "predicate": "has(variables.fees) && variables.fees.eligible == false"},
+    {"source": "dispatch", "target": "response_form", "predicate": "true"},
+
+    {"source": "load_fees", "target": "dispatch"}
+  ]
+}

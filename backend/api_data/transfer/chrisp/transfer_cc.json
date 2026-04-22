@@ -1,0 +1,34 @@
+{
+  "transfer_cc_details": {
+    "serviceDisruption": false,
+    "depositServiceDegraded": false,
+    "transferContext": {
+      "customerEligibility": {
+        "transfersEnabled": true,
+        "zelleTransfersEnabled": false,
+        "externalAccountEnabled": false
+      },
+      "flowIndicators": {
+        "baseFlowActive": true
+      },
+      "clientCategory": "CONSUMER"
+    },
+    "sourceAccounts": [
+      {
+        "accountLabel": "Chris Savings - 2468",
+        "accountTempId": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+        "entityType": "ACCOUNT",
+        "flagIndicators": { "wealthAccountFlag": false },
+        "availableBalance": "12,450.33",
+        "offeringVariant": "MA",
+        "commercialAccount": false
+      }
+    ],
+    "destinationAccounts": []
+  },
+  "transfer_cc_transferOptions": null,
+  "transfer_cc_validate": null,
+  "transfer_cc_submit_request": null,
+  "transfer_cc_submit_response": null,
+  "transfer_cc_transfer_pair": null
+}

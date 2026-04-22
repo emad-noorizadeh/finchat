@@ -1,0 +1,400 @@
+{
+  "responseData": {
+    "filterType": "MERCHANT",
+    "activityRecords": [
+      {
+        "merchantName": "Walmart Supercenter",
+        "merchantCategory": "PURCHASE_RETAIL",
+        "totalTransactions": 2,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260407-00006",
+            "primaryDescription": "Walmart Supercenter #3312",
+            "classificationCode": "53",
+            "settlementDate": "04/07/2026",
+            "transactionAmount": "$78.54",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 04/07",
+            "originDate": "04/07/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_RETAIL",
+            "authorizedAmount": "78.54"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260321-00007",
+            "primaryDescription": "Walmart Supercenter #3312",
+            "classificationCode": "53",
+            "settlementDate": "03/21/2026",
+            "transactionAmount": "$95.12",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/21",
+            "originDate": "03/21/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_RETAIL",
+            "authorizedAmount": "95.12"
+          }
+        ]
+      },
+      {
+        "merchantName": "Chick-fil-A",
+        "merchantCategory": "PURCHASE_FOOD",
+        "totalTransactions": 2,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260403-00009",
+            "primaryDescription": "Chick-fil-A #1892",
+            "classificationCode": "53",
+            "settlementDate": "04/03/2026",
+            "transactionAmount": "$12.45",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 04/03",
+            "originDate": "04/03/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_FOOD",
+            "authorizedAmount": "12.45"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260318-00010",
+            "primaryDescription": "Chick-fil-A #1892",
+            "classificationCode": "53",
+            "settlementDate": "03/18/2026",
+            "transactionAmount": "$9.87",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/18",
+            "originDate": "03/18/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_FOOD",
+            "authorizedAmount": "9.87"
+          }
+        ]
+      },
+      {
+        "merchantName": "AT&T Wireless Bill Pay",
+        "merchantCategory": "PAYMENT_BILL",
+        "totalTransactions": 2,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260404-00011",
+            "primaryDescription": "AT&T Wireless Bill Pay",
+            "classificationCode": "09",
+            "settlementDate": "04/04/2026",
+            "transactionAmount": "$65.00",
+            "entryDirection": "debit",
+            "statusDescription": "Bill payment processed on 04/04",
+            "originDate": "04/04/2026",
+            "processingState": "completed",
+            "activityClassifier": "billpay",
+            "displayCategory": "PAYMENT_BILL",
+            "authorizedAmount": "65.00"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260304-00012",
+            "primaryDescription": "AT&T Wireless Bill Pay",
+            "classificationCode": "09",
+            "settlementDate": "03/04/2026",
+            "transactionAmount": "$65.00",
+            "entryDirection": "debit",
+            "statusDescription": "Bill payment processed on 03/04",
+            "originDate": "03/04/2026",
+            "processingState": "completed",
+            "activityClassifier": "billpay",
+            "displayCategory": "PAYMENT_BILL",
+            "authorizedAmount": "65.00"
+          }
+        ]
+      },
+      {
+        "merchantName": "Hulu Subscription",
+        "merchantCategory": "SUBSCRIPTION_MEDIA",
+        "totalTransactions": 2,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260408-00013",
+            "primaryDescription": "Hulu Subscription",
+            "classificationCode": "48",
+            "settlementDate": "04/08/2026",
+            "transactionAmount": "$17.99",
+            "entryDirection": "debit",
+            "statusDescription": "Recurring charge processed on 04/08",
+            "originDate": "04/08/2026",
+            "processingState": "completed",
+            "activityClassifier": "rCC",
+            "displayCategory": "SUBSCRIPTION_MEDIA",
+            "authorizedAmount": "17.99"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260308-00014",
+            "primaryDescription": "Hulu Subscription",
+            "classificationCode": "48",
+            "settlementDate": "03/08/2026",
+            "transactionAmount": "$17.99",
+            "entryDirection": "debit",
+            "statusDescription": "Recurring charge processed on 03/08",
+            "originDate": "03/08/2026",
+            "processingState": "completed",
+            "activityClassifier": "rCC",
+            "displayCategory": "SUBSCRIPTION_MEDIA",
+            "authorizedAmount": "17.99"
+          }
+        ]
+      },
+      {
+        "merchantName": "Exxon Gas Station",
+        "merchantCategory": "PURCHASE_GAS",
+        "totalTransactions": 3,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260406-00015",
+            "primaryDescription": "Exxon Gas Station #7789",
+            "classificationCode": "53",
+            "settlementDate": "04/06/2026",
+            "transactionAmount": "$42.30",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 04/06",
+            "originDate": "04/06/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_GAS",
+            "authorizedAmount": "42.30"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260320-00016",
+            "primaryDescription": "Exxon Gas Station #7789",
+            "classificationCode": "53",
+            "settlementDate": "03/20/2026",
+            "transactionAmount": "$38.50",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/20",
+            "originDate": "03/20/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_GAS",
+            "authorizedAmount": "38.50"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260305-00017",
+            "primaryDescription": "Exxon Gas Station #7789",
+            "classificationCode": "53",
+            "settlementDate": "03/05/2026",
+            "transactionAmount": "$45.10",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/05",
+            "originDate": "03/05/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_GAS",
+            "authorizedAmount": "45.10"
+          }
+        ]
+      },
+      {
+        "merchantName": "Oncor Electric",
+        "merchantCategory": "PAYMENT_BILL",
+        "totalTransactions": 1,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260312-00020",
+            "primaryDescription": "Oncor Electric - Utility Bill",
+            "classificationCode": "09",
+            "settlementDate": "03/12/2026",
+            "transactionAmount": "$98.45",
+            "entryDirection": "debit",
+            "statusDescription": "Bill payment processed on 03/12",
+            "originDate": "03/12/2026",
+            "processingState": "completed",
+            "activityClassifier": "billpay",
+            "displayCategory": "PAYMENT_BILL",
+            "authorizedAmount": "98.45"
+          }
+        ]
+      },
+      {
+        "merchantName": "ALDI",
+        "merchantCategory": "PURCHASE_GROCERY",
+        "totalTransactions": 2,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260402-00023",
+            "primaryDescription": "ALDI #442",
+            "classificationCode": "53",
+            "settlementDate": "04/02/2026",
+            "transactionAmount": "$56.78",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 04/02",
+            "originDate": "04/02/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_GROCERY",
+            "authorizedAmount": "56.78"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260314-00024",
+            "primaryDescription": "ALDI #442",
+            "classificationCode": "53",
+            "settlementDate": "03/14/2026",
+            "transactionAmount": "$43.21",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/14",
+            "originDate": "03/14/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_GROCERY",
+            "authorizedAmount": "43.21"
+          }
+        ]
+      },
+      {
+        "merchantName": "Planet Fitness Monthly",
+        "merchantCategory": "SUBSCRIPTION_FITNESS",
+        "totalTransactions": 1,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260322-00027",
+            "primaryDescription": "Planet Fitness Monthly",
+            "classificationCode": "48",
+            "settlementDate": "03/22/2026",
+            "transactionAmount": "$24.99",
+            "entryDirection": "debit",
+            "statusDescription": "Recurring charge processed on 03/22",
+            "originDate": "03/22/2026",
+            "processingState": "completed",
+            "activityClassifier": "rCC",
+            "displayCategory": "SUBSCRIPTION_FITNESS",
+            "authorizedAmount": "24.99"
+          }
+        ]
+      },
+      {
+        "merchantName": "Amazon.com Purchase",
+        "merchantCategory": "PURCHASE_ONLINE",
+        "totalTransactions": 1,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260307-00029",
+            "primaryDescription": "Amazon.com Purchase",
+            "classificationCode": "53",
+            "settlementDate": "03/07/2026",
+            "transactionAmount": "$29.99",
+            "entryDirection": "debit",
+            "statusDescription": "Online purchase on 03/07",
+            "originDate": "03/07/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_ONLINE",
+            "authorizedAmount": "29.99"
+          }
+        ]
+      },
+      {
+        "merchantName": "Kroger",
+        "merchantCategory": "PURCHASE_GROCERY",
+        "totalTransactions": 1,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+              "accountLabel": "Alex Checking - 3579",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260326-00030",
+            "primaryDescription": "Kroger #1120",
+            "classificationCode": "53",
+            "settlementDate": "03/26/2026",
+            "transactionAmount": "$67.34",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/26",
+            "originDate": "03/26/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_GROCERY",
+            "authorizedAmount": "67.34"
+          }
+        ]
+      }
+    ]
+  }
+}

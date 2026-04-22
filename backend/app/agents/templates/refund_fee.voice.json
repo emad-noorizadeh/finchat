@@ -1,0 +1,209 @@
+{
+  "name": "refund_fee_voice",
+  "agent_name": "refund_fee",
+  "display_name": "Fee Refund (Voice)",
+  "channel": "voice",
+  "template_schema_version": 1,
+  "is_regulated": true,
+  "supported_channels": ["voice"],
+  "suspend_resume_allowed": false,
+  "locked_for_business_user_edit": true,
+  "unsupported_channel_message": "Fee refunds aren't available on this channel — please use chat or the mobile app.",
+  "entry_node": "parse",
+
+  "nodes": [
+    {
+      "id": "parse",
+      "type": "parse_node",
+      "data": {
+        "label": "Extract intent (voice)",
+        "mode": "llm",
+        "source": "last_user_message",
+        "llm_variant": "sub_agent",
+        "system_prompt": "You are a strict intent extractor for a VOICE-driven credit-card fee-refund sub-agent. You do not chat or explain — you only extract the fields below.\n\n## Task\nRead the user's SPOKEN utterance (transcribed) and extract the three fields. Use null for anything not mentioned.\n\n## Fields\n- `fee_type_hint` (string | null) — Free-text hint for the fee: 'late fee', 'late', 'cash advance interest', 'cash advance', 'annual fee'. Preserve phrasing.\n- `fee_index` (number | null) — If the user said \"the first one\", \"number 2\", \"the second fee\" etc., the 1-based index. Else null.\n- `confirmed` (boolean | null) — ONLY set when the user is answering a yes/no confirmation. Yes-family → true; No-family → false. Never infer from the opening utterance.\n\n## Rules\n- Never guess. If the user didn't specify a fee at all, both hint and index are null.\n- Silence, filler ('uh', 'let me think') → all nulls.\n\n## Examples\n- User: \"refund the late fee\" → `{fee_type_hint: \"late fee\", fee_index: null, confirmed: null}`\n- User: \"I want my cash advance interest refunded\" → `{fee_type_hint: \"cash advance interest\", fee_index: null, confirmed: null}`\n- User: \"the first one\" → `{fee_type_hint: null, fee_index: 1, confirmed: null}`\n- User: \"yes go ahead\" → `{fee_type_hint: null, fee_index: null, confirmed: true}`\n- User: \"no stop\" → `{fee_type_hint: null, fee_index: null, confirmed: false}`\n- User: \"how much do I have\" → all nulls",
+        "output_schema": {
+          "fee_type_hint": {"type": "string",  "nullable": true},
+          "fee_index":     {"type": "number",  "nullable": true},
+          "confirmed":     {"type": "boolean", "nullable": true}
+        },
+        "writes": {
+          "fee_type_hint": "fee_type_hint",
+          "fee_index":     "fee_index",
+          "confirmed":     "confirmed"
+        }
+      }
+    },
+
+    {"id": "dispatch", "type": "condition_node", "data": {"label": "Dispatch (deterministic)"}},
+
+    {
+      "id": "load_fees",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Load eligible fees",
+        "tool": "refund",
+        "action": "list_fees",
+        "params": {},
+        "output_var": "fees",
+        "on_error": "abort"
+      }
+    },
+
+    {
+      "id": "resolve_fee",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Resolve fee by hint",
+        "tool": "refund",
+        "action": "resolve_fee",
+        "params": {
+          "hint":       "{{variables.fee_type_hint}}",
+          "index":      "{{variables.fee_index}}",
+          "candidates": "{{variables.fees.refundableTransactions}}"
+        },
+        "output_var": "selected_fee",
+        "on_error": "abort"
+      }
+    },
+
+    {
+      "id": "prompt_select",
+      "type": "interrupt_node",
+      "data": {
+        "label": "Ask which fee",
+        "targets_slot": "fee_type_hint",
+        "prompt_template": "You have ${{variables.fees.totalRefundableAmount}} in refundable fees. Which fee would you like me to refund — your late fee or your cash advance interest?",
+        "voice_prompt_template": "You have ${{variables.fees.totalRefundableAmount}} in refundable fees. Which fee would you like me to refund — your late fee or your cash advance interest?"
+      }
+    },
+
+    {
+      "id": "prompt_confirm",
+      "type": "interrupt_node",
+      "data": {
+        "label": "Confirm before submit",
+        "targets_slot": "confirmed",
+        "prompt_template": "Submit a refund request for the {{variables.selected_fee.feeType}} of {{variables.selected_fee.transactionAmount}}? Shall I go ahead?",
+        "voice_prompt_template": "Submit a refund request for the {{variables.selected_fee.feeType}} of {{variables.selected_fee.transactionAmount}}? Shall I go ahead?"
+      }
+    },
+
+    {
+      "id": "submit_refund",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Submit refund",
+        "tool": "refund",
+        "action": "submit_refund",
+        "params": {
+          "activity_reference": "{{variables.selected_fee.activityReference}}"
+        },
+        "output_var": "decision",
+        "on_error": "abort"
+      }
+    },
+
+    {
+      "id": "response_approved",
+      "type": "response_node",
+      "data": {
+        "label": "Approved",
+        "return_mode": "glass",
+        "glass_template": "Good news — your refund has been approved. You'll see ${{variables.decision.refundAmount}} credited back, tracking number {{variables.decision.refundTrackingId}}."
+      }
+    },
+    {
+      "id": "response_denied",
+      "type": "response_node",
+      "data": {
+        "label": "Denied",
+        "return_mode": "glass",
+        "glass_template": "I'm sorry — the refund wasn't approved this time. {{variables.decision.decisionReason}}"
+      }
+    },
+    {
+      "id": "response_declined",
+      "type": "response_node",
+      "data": {
+        "label": "User declined",
+        "return_mode": "glass",
+        "glass_template": "Okay, I won't submit that refund."
+      }
+    },
+    {
+      "id": "response_no_fees",
+      "type": "response_node",
+      "data": {
+        "label": "No refundable fees",
+        "return_mode": "glass",
+        "glass_template": "You don't have any refundable fees right now."
+      }
+    },
+    {
+      "id": "response_escape",
+      "type": "response_node",
+      "data": {
+        "label": "User aborted / topic-change",
+        "is_escape_target": true,
+        "return_mode": "glass",
+        "glass_template": "Okay, leaving the refund flow."
+      }
+    },
+    {
+      "id": "response_retry_exhausted",
+      "type": "response_node",
+      "data": {
+        "label": "Retry exhausted",
+        "return_mode": "glass",
+        "glass_template": "I'm having trouble understanding. Let's stop here — you can try again in a moment."
+      }
+    },
+    {
+      "id": "response_failed",
+      "type": "response_node",
+      "data": {
+        "label": "Couldn't process",
+        "return_mode": "glass",
+        "glass_template": "I couldn't process that refund right now. Please try again in a moment."
+      }
+    }
+  ],
+
+  "edges": [
+    {"source": "parse", "target": "dispatch"},
+
+    {"source": "dispatch", "target": "response_retry_exhausted",
+     "predicate": "has(variables.retry_exhausted_for_slot)"},
+
+    {"source": "dispatch", "target": "response_approved",
+     "predicate": "has(variables.decision) && variables.decision.refundDecision == 'APPROVED'"},
+    {"source": "dispatch", "target": "response_denied",
+     "predicate": "has(variables.decision) && variables.decision.refundDecision == 'DENIED'"},
+    {"source": "dispatch", "target": "response_failed",
+     "predicate": "has(variables.decision) && variables.decision.status == 'ERROR'"},
+
+    {"source": "dispatch", "target": "response_failed",
+     "predicate": "has(variables.fees) && variables.fees.status == 'ERROR'"},
+    {"source": "dispatch", "target": "response_no_fees",
+     "predicate": "has(variables.fees) && variables.fees.eligible == false"},
+
+    {"source": "dispatch", "target": "load_fees",
+     "predicate": "!has(variables.fees)"},
+    {"source": "dispatch", "target": "prompt_select",
+     "predicate": "!has(variables.fee_type_hint) && !has(variables.fee_index)"},
+    {"source": "dispatch", "target": "resolve_fee",
+     "predicate": "(has(variables.fee_type_hint) || has(variables.fee_index)) && !has(variables.selected_fee)"},
+    {"source": "dispatch", "target": "prompt_confirm",
+     "predicate": "has(variables.selected_fee) && !has(variables.confirmed)"},
+    {"source": "dispatch", "target": "submit_refund",
+     "predicate": "has(variables.selected_fee) && has(variables.confirmed) && variables.confirmed == true"},
+    {"source": "dispatch", "target": "response_declined",
+     "predicate": "has(variables.confirmed) && variables.confirmed == false"},
+
+    {"source": "dispatch", "target": "response_failed", "predicate": "true"},
+
+    {"source": "load_fees", "target": "dispatch"},
+    {"source": "resolve_fee", "target": "dispatch"},
+    {"source": "submit_refund", "target": "dispatch"}
+  ]
+}

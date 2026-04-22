@@ -1,0 +1,215 @@
+{
+  "transfer_m2m_details": {
+    "serviceDisruption": false,
+    "depositServiceDegraded": false,
+    "transferContext": {
+      "customerEligibility": {
+        "transfersEnabled": true,
+        "zelleTransfersEnabled": true,
+        "externalAccountEnabled": true
+      },
+      "flowIndicators": {
+        "baseFlowActive": true
+      },
+      "clientCategory": "CONSUMER"
+    },
+    "sourceAccounts": [
+      {
+        "accountLabel": "My Savings Accnt - 1234",
+        "accountTempId": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie",
+        "entityType": "ACCOUNT",
+        "flagIndicators": {
+          "wealthAccountFlag": false
+        },
+        "availableBalance": "1,800.00",
+        "offeringVariant": "MA",
+        "commercialAccount": false
+      },
+      {
+        "accountLabel": "My Checking Accnt - 6789",
+        "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+        "entityType": "ACCOUNT",
+        "flagIndicators": {
+          "wealthAccountFlag": false
+        },
+        "availableBalance": "45,230.75",
+        "offeringVariant": "CK",
+        "commercialAccount": false
+      }
+    ],
+    "destinationAccounts": [
+      {
+        "accountLabel": "My Savings Accnt - 1234",
+        "accountTempId": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie",
+        "entityType": "ACCOUNT",
+        "flagIndicators": {
+          "wealthAccountFlag": false
+        },
+        "availableBalance": "1,800.00",
+        "offeringVariant": "MA",
+        "commercialAccount": false
+      },
+      {
+        "accountLabel": "My Checking Accnt - 6789",
+        "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+        "entityType": "ACCOUNT",
+        "flagIndicators": {
+          "wealthAccountFlag": false
+        },
+        "availableBalance": "45,230.75",
+        "offeringVariant": "CK",
+        "commercialAccount": false
+      },
+      {
+        "accountLabel": "Cash Rewards Credit Card - 8222",
+        "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+        "entityType": "ACCOUNT",
+        "flagIndicators": {
+          "wealthAccountFlag": false
+        },
+        "availableBalance": "2,340.50",
+        "offeringVariant": "CC",
+        "commercialAccount": false
+      }
+    ]
+  },
+  "transfer_m2m_transferOptions": {
+    "options": {
+      "targetParticipants": [
+        {
+          "accountLabel": "My Savings Accnt - 1234",
+          "accountTempId": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie",
+          "entityType": "ACCOUNT",
+          "flagIndicators": {
+            "wealthAccountFlag": false
+          },
+          "availableBalance": "1,800.00",
+          "offeringVariant": "MA",
+          "commercialAccount": false
+        }
+      ],
+      "chosenOriginAccount": {
+        "accountLabel": "My Checking Accnt - 6789",
+        "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+        "entityType": "ACCOUNT",
+        "flagIndicators": {
+          "wealthAccountFlag": false
+        },
+        "availableBalance": "45,230.75",
+        "offeringVariant": "CK",
+        "commercialAccount": false
+      },
+      "targetOptions": {
+        "eligibleForWDCdisclosure": false
+      },
+      "calendarDetails": {
+        "RECURRING": {
+          "startDate": "2026-03-03",
+          "currentDate": "2026-03-02",
+          "endDate": "2027-03-02",
+          "isWeekendEnabled": true
+        },
+        "ONE_TIME_SCHEDULED": {
+          "holidays": [
+            "2026-05-25",
+            "2026-06-19",
+            "2026-09-07",
+            "2026-10-12",
+            "2026-11-11",
+            "2026-11-26",
+            "2026-12-25",
+            "2027-01-01",
+            "2027-01-18",
+            "2027-02-15",
+            "2027-05-31",
+            "2027-07-05",
+            "2027-09-06",
+            "2027-10-11"
+          ],
+          "startDate": "2026-03-03",
+          "currentDate": "2026-03-02",
+          "endDate": "2027-03-02",
+          "isWeekendEnabled": false
+        }
+      },
+      "isScheduledOnly": false,
+      "selfNoteEligibility": true,
+      "compEligible": false,
+      "p2pNavigationEnabled": false,
+      "externalAccountEligibility": false
+    }
+  },
+  "transfer_m2m_validate": {
+    "disclaimers": [
+      "SUFFICIENT_FUNDS",
+      "CUT_OFF_TIME",
+      "IMMEDIATE_BANK",
+      "TRANSACTION_POSTING_DATE_EST"
+    ],
+    "review": {
+      "transactionDate": "2026-03-02",
+      "transactionType": "IMMEDIATE"
+    },
+    "id": "464dead9-39be-4a9b-b568-fb1db33fb9ab"
+  },
+  "transfer_m2m_submit_request": {
+    "transaction": {
+      "sourceAccount": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+      "targetAccount": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie",
+      "amount": "2.00",
+      "transactionType": "IMMEDIATE",
+      "id": "464dead9-39be-4a9b-b568-fb1db33fb9ab"
+    }
+  },
+  "transfer_m2m_submit_response": {
+    "ack": {
+      "confirmationId": "1046272510",
+      "transactionType": "IMMEDIATE",
+      "effectiveDate": "2026-03-02",
+      "isDelinquent": false
+    },
+    "disclaimers": [
+      "SUFFICIENT_FUNDS",
+      "CUT_OFF_TIME",
+      "IMMEDIATE_BANK",
+      "TRANSACTION_POSTING_DATE_EST"
+    ],
+    "transactionStatus": "COMPLETED"
+  },
+  "transfer_m2m_transfer_pair": {
+    "options": {
+      "targetParticipants": [
+        {
+          "accountLabel": "My Savings Accnt - 1234",
+          "accountTempId": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie",
+          "entityType": "ACCOUNT",
+          "flagIndicators": {
+            "wealthAccountFlag": false
+          },
+          "availableBalance": "1,800.00",
+          "offeringVariant": "MA",
+          "commercialAccount": false
+        },
+        {
+          "accountLabel": "Cash Rewards Credit Card - 8222",
+          "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+          "entityType": "CARD",
+          "availableBalance": "-2,340.50",
+          "offeringVariant": "CC",
+          "commercialAccount": false
+        }
+      ],
+      "chosenOriginAccount": {
+        "accountLabel": "My Checking Accnt - 6789",
+        "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+        "entityType": "ACCOUNT",
+        "flagIndicators": {
+          "wealthAccountFlag": false
+        },
+        "availableBalance": "45,230.75",
+        "offeringVariant": "CK",
+        "commercialAccount": false
+      }
+    }
+  }
+}

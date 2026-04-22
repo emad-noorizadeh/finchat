@@ -1,0 +1,29 @@
+{
+  "transfer_zelle_details": {
+    "outageDetected": false,
+    "customerProfile": {
+      "p2pTransferEligibility": "N",
+      "externalAccountLinkEnabled": "N"
+    },
+    "transferContext": {
+      "customerEligibility": {
+        "transfersEnabled": true,
+        "zelleTransfersEnabled": false,
+        "externalAccountEnabled": false
+      },
+      "flowIndicators": {
+        "baseFlowActive": true
+      },
+      "clientCategory": "CONSUMER"
+    },
+    "accountCategory": "CONSUMER",
+    "payeeList": [],
+    "aliasRegistered": false,
+    "inboundPaymentEligibility": false,
+    "primaryFundingAccountToken": null
+  },
+  "transfer_zelle_validate": null,
+  "transfer_zelle_submit_request": null,
+  "transfer_zelle_submit_response": null,
+  "transfer_zelle_transfer_pair": null
+}

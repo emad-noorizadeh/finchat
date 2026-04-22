@@ -1,0 +1,261 @@
+{
+  "name": "transfer_money_voice",
+  "agent_name": "transfer_money",
+  "display_name": "Transfer Money (Voice)",
+  "channel": "voice",
+  "template_schema_version": 1,
+  "is_regulated": true,
+  "supported_channels": ["voice"],
+  "suspend_resume_allowed": false,
+  "locked_for_business_user_edit": true,
+  "unsupported_channel_message": "Transfers aren't available on this channel — please use chat or the mobile app.",
+  "entry_node": "parse",
+
+  "nodes": [
+    {
+      "id": "parse",
+      "type": "parse_node",
+      "data": {
+        "label": "Extract intent (voice)",
+        "mode": "llm",
+        "source": "last_user_message",
+        "llm_variant": "sub_agent",
+        "system_prompt": "You are a strict intent extractor for a VOICE-driven bank-transfer sub-agent. You do not chat, explain, or ask follow-up questions — you only extract the fields below.\n\n## Task\nRead the user's SPOKEN utterance (transcribed text) and extract the four fields. If the user did not mention a field, set it to null.\n\n## Fields\n- `amount` (number | null) — USD amount. Convert spoken numbers: 'a hundred bucks' → 100, 'two thousand five hundred' → 2500, 'fifty dollars' → 50. Strip '$', commas, and 'dollars'. Must be > 0 and ≤ 1,000,000; otherwise null. Bare numerals below 10 without a currency cue are ambiguous → null.\n- `from_account_hint` (string | null) — Free-text hint for the SOURCE account. Accept: 'checking', 'savings', 'money market', 'credit card', a last-4 like '6789'. Preserve the user's phrasing verbatim.\n- `to_account_hint` (string | null) — Free-text hint for the DESTINATION account. Same vocabulary as `from_account_hint`.\n- `confirmed` (boolean | null) — ONLY set when the user is clearly answering a yes/no confirmation prompt.\n    - `true` ← 'yes', 'yeah', 'go ahead', 'confirm', 'do it'\n    - `false` ← 'no', 'nope', \"don't\", 'stop that', 'cancel'\n  Never infer from an initial transfer request — return null unless the utterance is a direct yes/no answer.\n\n## Rules\n- Never guess, infer, or fabricate a field the user did not mention.\n- Silence, filler ('uh', 'let me think'), or a clarification question back from the user → all nulls.\n- Preserve the user's phrasing for hints — don't rewrite 'checking acct' into 'checking'.\n\n## Examples\n- User: \"transfer two hundred from checking to savings\" → `{amount: 200, from_account_hint: \"checking\", to_account_hint: \"savings\", confirmed: null}`\n- User: \"a hundred bucks\" → `{amount: 100, …, confirmed: null}`\n- User: \"my money market\" → `{amount: null, from_account_hint: \"money market\", to_account_hint: null, confirmed: null}`\n- User: \"yes go ahead\" → `{…, confirmed: true}` (answering a confirmation)\n- User: \"no don't\" → `{…, confirmed: false}`\n- User: \"how much do I have\" → all nulls (balance question, not a transfer)\n- User: \"uh let me think\" → all nulls (filler, not an answer)",
+        "output_schema": {
+          "amount": {"type": "number", "nullable": true, "description": "USD amount > 0"},
+          "from_account_hint": {"type": "string", "nullable": true},
+          "to_account_hint": {"type": "string", "nullable": true},
+          "confirmed": {"type": "boolean", "nullable": true, "description": "Only set when answering a yes/no confirmation."}
+        },
+        "writes": {
+          "amount": "amount",
+          "from_account_hint": "from_account_hint",
+          "to_account_hint": "to_account_hint",
+          "confirmed": "confirmed"
+        }
+      }
+    },
+
+    {
+      "id": "dispatch",
+      "type": "condition_node",
+      "data": {
+        "label": "Dispatch (deterministic)"
+      }
+    },
+
+    {
+      "id": "load_details",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Load eligible accounts",
+        "tool": "transfer",
+        "action": "get_details",
+        "params": {"transfer_type": "m2m"},
+        "output_var": "transfer_details",
+        "on_error": "abort"
+      }
+    },
+
+    {
+      "id": "resolve_from",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Resolve 'from' hint",
+        "tool": "transfer",
+        "action": "resolve_account",
+        "params": {
+          "hint": "{{variables.from_account_hint}}",
+          "candidates": "{{variables.transfer_details.sourceAccounts}}"
+        },
+        "output_var": "from_account",
+        "on_error": "abort"
+      }
+    },
+    {
+      "id": "resolve_to",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Resolve 'to' hint",
+        "tool": "transfer",
+        "action": "resolve_account",
+        "params": {
+          "hint": "{{variables.to_account_hint}}",
+          "candidates": "{{variables.transfer_details.destinationAccounts}}"
+        },
+        "output_var": "to_account",
+        "on_error": "abort"
+      }
+    },
+
+    {
+      "id": "prompt_amount",
+      "type": "interrupt_node",
+      "data": {
+        "label": "Ask for amount",
+        "targets_slot": "amount",
+        "prompt_template": "How much would you like to transfer?",
+        "voice_prompt_template": "How much would you like to transfer?"
+      }
+    },
+    {
+      "id": "prompt_from",
+      "type": "interrupt_node",
+      "data": {
+        "label": "Ask for source account",
+        "targets_slot": "from_account_hint",
+        "prompt_template": "Which account should the money come from?",
+        "voice_prompt_template": "Which account should the money come from?"
+      }
+    },
+    {
+      "id": "prompt_to",
+      "type": "interrupt_node",
+      "data": {
+        "label": "Ask for destination account",
+        "targets_slot": "to_account_hint",
+        "prompt_template": "Where should the money go?",
+        "voice_prompt_template": "Where should the money go?"
+      }
+    },
+    {
+      "id": "prompt_confirm",
+      "type": "interrupt_node",
+      "data": {
+        "label": "Confirm before submit",
+        "targets_slot": "confirmed",
+        "prompt_template": "Transfer ${{variables.amount}} from {{variables.from_account.accountLabel}} to {{variables.to_account.accountLabel}}. Shall I go ahead?",
+        "voice_prompt_template": "Transfer ${{variables.amount}} from {{variables.from_account.accountLabel}} to {{variables.to_account.accountLabel}}. Shall I go ahead?"
+      }
+    },
+
+    {
+      "id": "validate",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Validate",
+        "tool": "transfer",
+        "action": "validate",
+        "params": {
+          "transfer_type": "m2m",
+          "source_account_id": "{{variables.from_account.accountTempId}}",
+          "target_account_id": "{{variables.to_account.accountTempId}}",
+          "amount": "{{variables.amount}}"
+        },
+        "output_var": "validation_result",
+        "on_error": "abort"
+      }
+    },
+
+    {
+      "id": "submit",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Submit transfer",
+        "tool": "transfer",
+        "action": "submit",
+        "params": {
+          "transfer_type": "m2m",
+          "source_account_id": "{{variables.from_account.accountTempId}}",
+          "target_account_id": "{{variables.to_account.accountTempId}}",
+          "amount": "{{variables.amount}}",
+          "validation_id": "{{variables.validation_result._validation_id}}"
+        },
+        "output_var": "submit_result",
+        "on_error": "abort"
+      }
+    },
+
+    {
+      "id": "response_completed",
+      "type": "response_node",
+      "data": {
+        "label": "Completed",
+        "return_mode": "glass",
+        "glass_template": "Done. I transferred ${{variables.amount}} from {{variables.from_account.accountLabel}} to {{variables.to_account.accountLabel}}. Your confirmation number is {{variables.submit_result.confirmation_id}}."
+      }
+    },
+    {
+      "id": "response_declined",
+      "type": "response_node",
+      "data": {
+        "label": "User declined",
+        "return_mode": "glass",
+        "glass_template": "Okay, I won't make that transfer."
+      }
+    },
+    {
+      "id": "response_escape",
+      "type": "response_node",
+      "data": {
+        "label": "User aborted / topic-change",
+        "is_escape_target": true,
+        "return_mode": "glass",
+        "glass_template": "Okay, leaving the transfer."
+      }
+    },
+    {
+      "id": "response_retry_exhausted",
+      "type": "response_node",
+      "data": {
+        "label": "Retry exhausted",
+        "return_mode": "glass",
+        "glass_template": "I'm having trouble understanding. Let's stop here — you can try again in a moment."
+      }
+    },
+    {
+      "id": "response_failed",
+      "type": "response_node",
+      "data": {
+        "label": "Submit failed",
+        "return_mode": "glass",
+        "glass_template": "I couldn't complete the transfer. Please try again in a moment."
+      }
+    }
+  ],
+
+  "edges": [
+    {"source": "parse", "target": "dispatch"},
+
+    {"source": "dispatch", "target": "response_retry_exhausted",
+     "predicate": "has(variables.retry_exhausted_for_slot)"},
+
+    {"source": "dispatch", "target": "response_completed",
+     "predicate": "has(variables.submit_result) && has(variables.submit_result.confirmation_id)"},
+    {"source": "dispatch", "target": "response_failed",
+     "predicate": "has(variables.submit_result) && variables.submit_result.status == 'ERROR'"},
+    {"source": "dispatch", "target": "response_failed",
+     "predicate": "has(variables.validation_result) && variables.validation_result.status == 'ERROR'"},
+    {"source": "dispatch", "target": "response_failed",
+     "predicate": "has(variables.transfer_details) && variables.transfer_details.status == 'ERROR'"},
+
+    {"source": "dispatch", "target": "load_details",
+     "predicate": "!has(variables.transfer_details)"},
+    {"source": "dispatch", "target": "prompt_amount",
+     "predicate": "!has(variables.amount)"},
+    {"source": "dispatch", "target": "prompt_from",
+     "predicate": "!has(variables.from_account_hint)"},
+    {"source": "dispatch", "target": "resolve_from",
+     "predicate": "has(variables.from_account_hint) && !has(variables.from_account)"},
+    {"source": "dispatch", "target": "prompt_to",
+     "predicate": "!has(variables.to_account_hint)"},
+    {"source": "dispatch", "target": "resolve_to",
+     "predicate": "has(variables.to_account_hint) && !has(variables.to_account)"},
+    {"source": "dispatch", "target": "validate",
+     "predicate": "has(variables.amount) && has(variables.from_account) && has(variables.to_account) && !has(variables.validation_result)"},
+    {"source": "dispatch", "target": "prompt_confirm",
+     "predicate": "has(variables.validation_result) && !has(variables.confirmed)"},
+    {"source": "dispatch", "target": "submit",
+     "predicate": "has(variables.validation_result) && has(variables.confirmed) && variables.confirmed == true"},
+    {"source": "dispatch", "target": "response_declined",
+     "predicate": "has(variables.confirmed) && variables.confirmed == false"},
+
+    {"source": "dispatch", "target": "response_failed", "predicate": "true"},
+
+    {"source": "load_details", "target": "dispatch"},
+    {"source": "resolve_from", "target": "dispatch"},
+    {"source": "resolve_to", "target": "dispatch"},
+    {"source": "validate", "target": "dispatch"},
+    {"source": "submit", "target": "dispatch"}
+  ]
+}

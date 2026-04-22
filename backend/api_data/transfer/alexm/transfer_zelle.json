@@ -1,0 +1,163 @@
+{
+  "transfer_zelle_details": {
+    "outageDetected": false,
+    "customerProfile": {
+      "p2pTransferEligibility": "Y",
+      "externalAccountLinkEnabled": "Y"
+    },
+    "transferContext": {
+      "customerEligibility": {
+        "transfersEnabled": true,
+        "zelleTransfersEnabled": true,
+        "externalAccountEnabled": true
+      },
+      "flowIndicators": {
+        "baseFlowActive": true
+      },
+      "clientCategory": "CONSUMER"
+    },
+    "accountCategory": "CONSUMER",
+    "payeeList": [
+      {
+        "payeeDisplayName": "Arya",
+        "payeeInitial": "A",
+        "payeeAlias": "arya.banking@gmail.com",
+        "payeeReferenceId": "ZLP-00501-AR",
+        "payeeAliasStatus": "active",
+        "corporatePayee": false,
+        "lastActivityDate": "2026-02-10T16:30:45.700+00:00",
+        "recentPaymentDisplay": "$25.00",
+        "recentPaymentValue": 25,
+        "recentPaymentDate": "2026-02-10T16:30:00Z",
+        "preferredFundingToken": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+        "renderEligible": true,
+        "renderIndicatorSet": [
+          { "tag": "ZelleTier1Flag", "enabled": true, "tier": "3" }
+        ],
+        "futurePaymentAllowed": true,
+        "repeatPaymentAllowed": true,
+        "modifyEligible": true,
+        "removeEligible": true
+      },
+      {
+        "payeeDisplayName": "Chris",
+        "payeeInitial": "C",
+        "payeeAlias": "chris.wealth@gmail.com",
+        "payeeReferenceId": "ZLP-00502-CR",
+        "payeeAliasStatus": "active",
+        "corporatePayee": false,
+        "lastActivityDate": "2026-01-20T09:15:22.300+00:00",
+        "recentPaymentDisplay": "$60.00",
+        "recentPaymentValue": 60,
+        "recentPaymentDate": "2026-01-20T09:15:00Z",
+        "preferredFundingToken": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+        "renderEligible": true,
+        "renderIndicatorSet": [
+          { "tag": "ZelleTier1Flag", "enabled": true, "tier": "4" }
+        ],
+        "futurePaymentAllowed": true,
+        "repeatPaymentAllowed": true,
+        "modifyEligible": true,
+        "removeEligible": true
+      },
+      {
+        "payeeDisplayName": "Sam Rivera",
+        "payeeInitial": "SR",
+        "payeeAlias": "+14695558823",
+        "payeeReferenceId": "ZLP-00503-SM",
+        "payeeAliasStatus": "active",
+        "corporatePayee": false,
+        "lastActivityDate": "2026-03-28T11:42:10.500+00:00",
+        "recentPaymentDisplay": "$40.00",
+        "recentPaymentValue": 40,
+        "recentPaymentDate": "2026-03-28T11:42:00Z",
+        "preferredFundingToken": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+        "renderEligible": true,
+        "renderIndicatorSet": [
+          { "tag": "ZelleTier1Flag", "enabled": true, "tier": "3" }
+        ],
+        "futurePaymentAllowed": true,
+        "repeatPaymentAllowed": false,
+        "modifyEligible": true,
+        "removeEligible": true
+      }
+    ],
+    "aliasRegistered": true,
+    "inboundPaymentEligibility": true,
+    "primaryFundingAccountToken": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4"
+  },
+  "transfer_zelle_validate": {
+    "disclaimers": [
+      "ZELLE_SEND_MONEY_DISCLAIMER",
+      "ZELLE_SEND_MONEY_NO_CANCEL_DISCLAIMER",
+      "SUFFICIENT_FUNDS_DISCLAIMER"
+    ],
+    "otpRequired": false,
+    "id": "71a82c39-ef4b-4d12-a891-23cf4e067819",
+    "firstTimeTransferDetails": {
+      "firstTimeTransfer": false,
+      "recipientRegistered": true
+    }
+  },
+  "transfer_zelle_submit_request": {
+    "transaction": {
+      "source": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+      "target": {
+        "type": "RECIPIENT_ID",
+        "value": "ZLP-00501-AR"
+      },
+      "amount": 25,
+      "type": "IMMEDIATE",
+      "duplicateFlag": false,
+      "id": "71a82c39-ef4b-4d12-a891-23cf4e067819"
+    }
+  },
+  "transfer_zelle_submit_response": {
+    "ack": {
+      "confirmationNumber": "axz7k9m2q",
+      "effectiveDate": "2026-03-05",
+      "status": "Completed",
+      "identifier": "Bsiaxz7k9m2q",
+      "amount": 25
+    }
+  },
+  "transfer_zelle_transfer_pair": {
+    "options": {
+      "fundingAccount": {
+        "accountLabel": "Alex Checking - 3579",
+        "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+        "offeringVariant": "CK"
+      },
+      "enrollmentAlias": "4695551234",
+      "registeredIdentity": {
+        "formattedFirstName": "Alex",
+        "givenName": "Alex",
+        "familyName": null
+      },
+      "selectedPayee": {
+        "payeeDisplayName": "Arya",
+        "payeeAlias": "arya.banking@gmail.com",
+        "payeeAliasType": "EMAIL",
+        "payeeReferenceId": "ZLP-00501-AR",
+        "payeeAliasStatus": "active",
+        "preferredFundingToken": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+        "identityVerified": true
+      },
+      "primaryFundingAccountToken": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+      "repeatIntervalOptions": [
+        "INDEFINITE",
+        "NUMBER_OF_TRANSACTIONS"
+      ],
+      "cadenceOptions": [
+        "WEEKLY",
+        "MONTHLY"
+      ],
+      "paymentCalendar": {
+        "todayDate": "2026-03-06",
+        "earliestStartDate": "2026-03-06",
+        "latestEndDate": "2027-03-06"
+      },
+      "zelleEnrollmentActive": true
+    }
+  }
+}

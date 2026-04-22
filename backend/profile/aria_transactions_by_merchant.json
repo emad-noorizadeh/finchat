@@ -1,0 +1,545 @@
+{
+  "responseData": {
+    "filterType": "MERCHANT",
+    "activityRecords": [
+      {
+        "merchantName": "Netflix",
+        "merchantCategory": "SUBSCRIPTION_MEDIA",
+        "totalTransactions": 3,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260408-10001",
+            "primaryDescription": "Netflix Subscription",
+            "classificationCode": "48",
+            "settlementDate": "04/08/2026",
+            "transactionAmount": "$22.99",
+            "entryDirection": "debit",
+            "statusDescription": "Recurring charge processed on 04/08",
+            "originDate": "04/08/2026",
+            "processingState": "completed",
+            "activityClassifier": "rCC",
+            "displayCategory": "SUBSCRIPTION_MEDIA",
+            "authorizedAmount": "22.99"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260308-10002",
+            "primaryDescription": "Netflix Subscription",
+            "classificationCode": "48",
+            "settlementDate": "03/08/2026",
+            "transactionAmount": "$22.99",
+            "entryDirection": "debit",
+            "statusDescription": "Recurring charge processed on 03/08",
+            "originDate": "03/08/2026",
+            "processingState": "completed",
+            "activityClassifier": "rCC",
+            "displayCategory": "SUBSCRIPTION_MEDIA",
+            "authorizedAmount": "22.99"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260208-10003",
+            "primaryDescription": "Netflix Subscription",
+            "classificationCode": "48",
+            "settlementDate": "02/08/2026",
+            "transactionAmount": "$22.99",
+            "entryDirection": "debit",
+            "statusDescription": "Recurring charge processed on 02/08",
+            "originDate": "02/08/2026",
+            "processingState": "completed",
+            "activityClassifier": "rCC",
+            "displayCategory": "SUBSCRIPTION_MEDIA",
+            "authorizedAmount": "22.99"
+          }
+        ]
+      },
+      {
+        "merchantName": "Spotify",
+        "merchantCategory": "SUBSCRIPTION_MEDIA",
+        "totalTransactions": 3,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260425-10004",
+            "primaryDescription": "Spotify Premium",
+            "classificationCode": "48",
+            "settlementDate": null,
+            "transactionAmount": "$10.99",
+            "entryDirection": "debit",
+            "statusDescription": "Recurring charge processing since 04/25",
+            "originDate": "04/25/2026",
+            "processingState": "processing",
+            "activityClassifier": "rCC",
+            "displayCategory": "SUBSCRIPTION_MEDIA",
+            "authorizedAmount": "10.99"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260325-10005",
+            "primaryDescription": "Spotify Premium",
+            "classificationCode": "48",
+            "settlementDate": "03/25/2026",
+            "transactionAmount": "$10.99",
+            "entryDirection": "debit",
+            "statusDescription": "Recurring charge processed on 03/25",
+            "originDate": "03/25/2026",
+            "processingState": "completed",
+            "activityClassifier": "rCC",
+            "displayCategory": "SUBSCRIPTION_MEDIA",
+            "authorizedAmount": "10.99"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260225-10006",
+            "primaryDescription": "Spotify Premium",
+            "classificationCode": "48",
+            "settlementDate": "02/25/2026",
+            "transactionAmount": "$10.99",
+            "entryDirection": "debit",
+            "statusDescription": "Recurring charge processed on 02/25",
+            "originDate": "02/25/2026",
+            "processingState": "completed",
+            "activityClassifier": "rCC",
+            "displayCategory": "SUBSCRIPTION_MEDIA",
+            "authorizedAmount": "10.99"
+          }
+        ]
+      },
+      {
+        "merchantName": "Amazon.com",
+        "merchantCategory": "PURCHASE_ONLINE",
+        "totalTransactions": 3,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+              "accountLabel": "Cash Rewards Credit Card - 8222",
+              "offeringVariant": "CREDIT_CARD"
+            },
+            "activityReference": "TXN-CC-20260405-10007",
+            "primaryDescription": "Amazon.com Purchase",
+            "classificationCode": "53",
+            "settlementDate": "04/05/2026",
+            "transactionAmount": "$89.99",
+            "entryDirection": "debit",
+            "statusDescription": "Online purchase on 04/05",
+            "originDate": "04/05/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_ONLINE",
+            "authorizedAmount": "89.99"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+              "accountLabel": "Cash Rewards Credit Card - 8222",
+              "offeringVariant": "CREDIT_CARD"
+            },
+            "activityReference": "TXN-CC-20260318-10008",
+            "primaryDescription": "Amazon.com Purchase",
+            "classificationCode": "53",
+            "settlementDate": "03/18/2026",
+            "transactionAmount": "$34.50",
+            "entryDirection": "debit",
+            "statusDescription": "Online purchase on 03/18",
+            "originDate": "03/18/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_ONLINE",
+            "authorizedAmount": "34.50"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+              "accountLabel": "Cash Rewards Credit Card - 8222",
+              "offeringVariant": "CREDIT_CARD"
+            },
+            "activityReference": "TXN-CC-20260228-10009",
+            "primaryDescription": "Amazon.com Purchase",
+            "classificationCode": "53",
+            "settlementDate": "02/28/2026",
+            "transactionAmount": "$152.30",
+            "entryDirection": "debit",
+            "statusDescription": "Online purchase on 02/28",
+            "originDate": "02/28/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_ONLINE",
+            "authorizedAmount": "152.30"
+          }
+        ]
+      },
+      {
+        "merchantName": "Shell Gas Station",
+        "merchantCategory": "PURCHASE_GAS",
+        "totalTransactions": 3,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+              "accountLabel": "Cash Rewards Credit Card - 8222",
+              "offeringVariant": "CREDIT_CARD"
+            },
+            "activityReference": "TXN-CC-20260403-10010",
+            "primaryDescription": "Shell Gas Station #4421",
+            "classificationCode": "53",
+            "settlementDate": "04/03/2026",
+            "transactionAmount": "$48.75",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 04/03",
+            "originDate": "04/03/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_GAS",
+            "authorizedAmount": "48.75"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+              "accountLabel": "Cash Rewards Credit Card - 8222",
+              "offeringVariant": "CREDIT_CARD"
+            },
+            "activityReference": "TXN-CC-20260320-10011",
+            "primaryDescription": "Shell Gas Station #4421",
+            "classificationCode": "53",
+            "settlementDate": "03/20/2026",
+            "transactionAmount": "$52.30",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/20",
+            "originDate": "03/20/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_GAS",
+            "authorizedAmount": "52.30"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+              "accountLabel": "Cash Rewards Credit Card - 8222",
+              "offeringVariant": "CREDIT_CARD"
+            },
+            "activityReference": "TXN-CC-20260305-10012",
+            "primaryDescription": "Shell Gas Station #4421",
+            "classificationCode": "53",
+            "settlementDate": "03/05/2026",
+            "transactionAmount": "$55.10",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/05",
+            "originDate": "03/05/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_GAS",
+            "authorizedAmount": "55.10"
+          }
+        ]
+      },
+      {
+        "merchantName": "Whole Foods Market",
+        "merchantCategory": "PURCHASE_GROCERY",
+        "totalTransactions": 3,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+              "accountLabel": "Cash Rewards Credit Card - 8222",
+              "offeringVariant": "CREDIT_CARD"
+            },
+            "activityReference": "TXN-CC-20260330-10013",
+            "primaryDescription": "Whole Foods Market #1087",
+            "classificationCode": "53",
+            "settlementDate": "03/30/2026",
+            "transactionAmount": "$134.56",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/30",
+            "originDate": "03/30/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_GROCERY",
+            "authorizedAmount": "134.56"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+              "accountLabel": "Cash Rewards Credit Card - 8222",
+              "offeringVariant": "CREDIT_CARD"
+            },
+            "activityReference": "TXN-CC-20260316-10014",
+            "primaryDescription": "Whole Foods Market #1087",
+            "classificationCode": "53",
+            "settlementDate": "03/16/2026",
+            "transactionAmount": "$98.22",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/16",
+            "originDate": "03/16/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_GROCERY",
+            "authorizedAmount": "98.22"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+              "accountLabel": "Cash Rewards Credit Card - 8222",
+              "offeringVariant": "CREDIT_CARD"
+            },
+            "activityReference": "TXN-CC-20260302-10015",
+            "primaryDescription": "Whole Foods Market #1087",
+            "classificationCode": "53",
+            "settlementDate": "03/02/2026",
+            "transactionAmount": "$112.80",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/02",
+            "originDate": "03/02/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_GROCERY",
+            "authorizedAmount": "112.80"
+          }
+        ]
+      },
+      {
+        "merchantName": "Starbucks",
+        "merchantCategory": "PURCHASE_FOOD",
+        "totalTransactions": 4,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260407-10016",
+            "primaryDescription": "Starbucks #5567",
+            "classificationCode": "53",
+            "settlementDate": "04/07/2026",
+            "transactionAmount": "$7.25",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 04/07",
+            "originDate": "04/07/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_FOOD",
+            "authorizedAmount": "7.25"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260331-10017",
+            "primaryDescription": "Starbucks #5567",
+            "classificationCode": "53",
+            "settlementDate": "03/31/2026",
+            "transactionAmount": "$6.50",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/31",
+            "originDate": "03/31/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_FOOD",
+            "authorizedAmount": "6.50"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260324-10018",
+            "primaryDescription": "Starbucks #5567",
+            "classificationCode": "53",
+            "settlementDate": "03/24/2026",
+            "transactionAmount": "$5.95",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/24",
+            "originDate": "03/24/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_FOOD",
+            "authorizedAmount": "5.95"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260310-10019",
+            "primaryDescription": "Starbucks #5567",
+            "classificationCode": "53",
+            "settlementDate": "03/10/2026",
+            "transactionAmount": "$8.10",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/10",
+            "originDate": "03/10/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_FOOD",
+            "authorizedAmount": "8.10"
+          }
+        ]
+      },
+      {
+        "merchantName": "Costco Wholesale",
+        "merchantCategory": "PURCHASE_RETAIL",
+        "totalTransactions": 2,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260406-10020",
+            "primaryDescription": "Costco Wholesale #1234",
+            "classificationCode": "53",
+            "settlementDate": "04/06/2026",
+            "transactionAmount": "$213.87",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 04/06",
+            "originDate": "04/06/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_RETAIL",
+            "authorizedAmount": "213.87"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260305-10021",
+            "primaryDescription": "Costco Wholesale #1234",
+            "classificationCode": "53",
+            "settlementDate": "03/05/2026",
+            "transactionAmount": "$187.43",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/05",
+            "originDate": "03/05/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_RETAIL",
+            "authorizedAmount": "187.43"
+          }
+        ]
+      },
+      {
+        "merchantName": "Target",
+        "merchantCategory": "PURCHASE_RETAIL",
+        "totalTransactions": 2,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260409-10022",
+            "primaryDescription": "Pending - Target Store #0782",
+            "classificationCode": "53",
+            "settlementDate": null,
+            "transactionAmount": "$45.67",
+            "entryDirection": "debit",
+            "statusDescription": "Authorization hold - pending settlement",
+            "originDate": "04/09/2026",
+            "processingState": "pending",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_RETAIL",
+            "authorizedAmount": "45.67"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+              "accountLabel": "My Checking Accnt - 6789",
+              "offeringVariant": "CHECKING"
+            },
+            "activityReference": "TXN-CHK-20260322-10023",
+            "primaryDescription": "Target Store #0782",
+            "classificationCode": "53",
+            "settlementDate": "03/22/2026",
+            "transactionAmount": "$63.18",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/22",
+            "originDate": "03/22/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_RETAIL",
+            "authorizedAmount": "63.18"
+          }
+        ]
+      },
+      {
+        "merchantName": "Chipotle Mexican Grill",
+        "merchantCategory": "PURCHASE_FOOD",
+        "totalTransactions": 2,
+        "transactions": [
+          {
+            "linkedAccount": {
+              "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+              "accountLabel": "Cash Rewards Credit Card - 8222",
+              "offeringVariant": "CREDIT_CARD"
+            },
+            "activityReference": "TXN-CC-20260328-10024",
+            "primaryDescription": "Chipotle Mexican Grill #2247",
+            "classificationCode": "53",
+            "settlementDate": "03/28/2026",
+            "transactionAmount": "$14.52",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/28",
+            "originDate": "03/28/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_FOOD",
+            "authorizedAmount": "14.52"
+          },
+          {
+            "linkedAccount": {
+              "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+              "accountLabel": "Cash Rewards Credit Card - 8222",
+              "offeringVariant": "CREDIT_CARD"
+            },
+            "activityReference": "TXN-CC-20260312-10025",
+            "primaryDescription": "Chipotle Mexican Grill #2247",
+            "classificationCode": "53",
+            "settlementDate": "03/12/2026",
+            "transactionAmount": "$15.89",
+            "entryDirection": "debit",
+            "statusDescription": "Point of sale purchase on 03/12",
+            "originDate": "03/12/2026",
+            "processingState": "completed",
+            "activityClassifier": "pos",
+            "displayCategory": "PURCHASE_FOOD",
+            "authorizedAmount": "15.89"
+          }
+        ]
+      }
+    ]
+  }
+}

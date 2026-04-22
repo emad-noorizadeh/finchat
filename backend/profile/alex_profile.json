@@ -1,0 +1,295 @@
+{
+  "profile": {
+    "finishingDate": null,
+    "usersOtherNames": [],
+    "beginningDate": 170254567000,
+    "mailingAddress": {
+      "addressIdentifier": null,
+      "lastChange": null,
+      "lastRequested": null,
+      "streetAddressLine": ["5678 Oak Lane"],
+      "city": "Dallas",
+      "countryInfo": {
+        "code": "US",
+        "value": "United States"
+      },
+      "mailCodeInfo": null,
+      "zipCode": "75201",
+      "state": {
+        "code": "TX",
+        "value": "TEXAS"
+      }
+    },
+    "hyperInfo": null,
+    "countryEntInfo": {
+      "code": "1004321",
+      "value": "United States"
+    },
+    "email": null,
+    "lastModifiedTimeStamp": 12556764532,
+    "taxIdInfo": {
+      "taxIdentifier": "312456789",
+      "type": "SSN_US"
+    },
+    "userLanguagePref": {
+      "code": "en",
+      "value": "English"
+    },
+    "userIdentifier": {
+      "customerLoginId": "alexm",
+      "uniqueId": 15035428793,
+      "type": "personal"
+    },
+    "businessSegment": {
+      "code": "Consumer",
+      "name": "Consumer"
+    },
+    "statusFlagProfile": {
+      "isSMBProfile": false,
+      "isOTPResetEligible": false,
+      "isExternalTransfersEligible": true,
+      "isEligibleForEnhancedTransfer": false,
+      "isMerrillAdvisedClient": false,
+      "isJointAccountHolder": false,
+      "isPrivateBankClient": false,
+      "isOverdraftAlertEnabled": true,
+      "isBenefitsOnlineUser": false
+    },
+    "qualificationProfile": {
+      "isPeer2PeerEligible": "Y",
+      "isTransfersEligible": "Y",
+      "isCardReissuanceEligible": "N",
+      "billPaymentQualification": null,
+      "inboundTransfersQualification": null,
+      "peerTransferEligibility": null,
+      "balanceTransferQualification": null,
+      "fraudEligibility": null,
+      "digitalWalletQualificationList": [
+        {
+          "type": "isPazeWalletQualified",
+          "eligibility": "Y"
+        }
+      ],
+      "eligibleForPinReplacement": "N"
+    },
+    "rewardsProfile": {
+      "enrollmentStatus": "NOT_ENROLLED",
+      "currentTier": null,
+      "tierLevel": null,
+      "tierDisplayName": null,
+      "qualifyingBalance": 0.00,
+      "tierThreshold": null,
+      "nextTierThreshold": null,
+      "nextTierName": null,
+      "enrollmentDate": null,
+      "tierEffectiveDate": null,
+      "benefits": []
+    },
+    "userRole": {
+      "code": "Minor",
+      "value": "false"
+    },
+    "experimentalFeatureFlag": [
+      {
+        "componentID": null,
+        "configurationName": "Transfers-Flag",
+        "level": "Y"
+      },
+      {
+        "componentID": null,
+        "configurationName": "Search-Flag",
+        "level": "Y"
+      }
+    ],
+    "serviceFeatureFlags": [
+      {
+        "name": "SearchRecentTransactions",
+        "indicator": true,
+        "level": "FULL"
+      }
+    ],
+    "userLoginTimesets": [
+      {
+        "name": "Desktop",
+        "time": 1774566890
+      },
+      {
+        "name": "MobileApp",
+        "time": 1774466372
+      }
+    ],
+    "displayQualificationProfile": {
+      "billPaymentDisplayQualification": null,
+      "yearEndStatementQualificationEligibility": "N",
+      "paperSuppressionDisplayEligibilityInfo": "Y"
+    },
+    "userSalesEligibilityProfile": {
+      "isAccountEligibleForDeals": "N",
+      "isCustomerEligibleForDeals": "N"
+    },
+    "displayFlagProfile": {
+      "userTransactionsIndicator": null,
+      "userPaymentActivityModuleList": [
+        {
+          "module": "consWire",
+          "indicator": false
+        },
+        {
+          "module": "MLWires",
+          "indicator": false
+        }
+      ]
+    },
+    "userServiceEligibilities": {
+      "newCardEligibility": "N",
+      "newUserOnboarding": "N"
+    },
+    "userBirthDate": 82156789300,
+    "userAge": 27,
+    "profileName": {
+      "userName": "Alex",
+      "firstName": "Alex",
+      "lastName": null
+    },
+    "hasGoals": false,
+    "goals": [],
+    "scoreDetails": [
+      { "score": 710, "assessmentDate": "2026-02-28", "assessmentCat": "Good" },
+      { "score": 705, "assessmentDate": "2026-01-31", "assessmentCat": "Good" },
+      { "score": 698, "assessmentDate": "2025-12-31", "assessmentCat": "Fair" },
+      { "score": 690, "assessmentDate": "2025-11-30", "assessmentCat": "Fair" },
+      { "score": 685, "assessmentDate": "2025-10-31", "assessmentCat": "Fair" },
+      { "score": 680, "assessmentDate": "2025-09-30", "assessmentCat": "Fair" }
+    ],
+    "hasAccountInBadStatus": [
+      {
+        "code": "1",
+        "value": false,
+        "reason": null,
+        "description": "Balance Status"
+      }
+    ]
+  },
+  "accounts": [
+    {
+      "identityDetails": {
+        "platformCode": "NEW1",
+        "moduleCode": "001",
+        "accountReference": "900000000000246813579",
+        "alphaEntityKey": "BC",
+        "orgCode": "0999",
+        "accountClassification": "PERSONAL",
+        "offeringVariant": "CK",
+        "type": {
+          "name": null,
+          "shortDescription": "Personal",
+          "longDescription": "Retail"
+        }
+      },
+      "displayAccountReference": "246813579",
+      "accountTempId": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4",
+      "businessSegment": {
+        "code": "Consumer",
+        "name": "Consumer",
+        "description": null,
+        "hierarchyCode": null
+      },
+      "beginningDate": 160099280800,
+      "finishingDate": null,
+      "qualificationProfile": {
+        "billPaymentQualification": "Y",
+        "inboundTransfersQualification": "Y",
+        "outboundTransferQualification": "Y",
+        "peerTransferEligibility": "Y",
+        "balanceTransferQualification": "N",
+        "digitalChannelTransferEligibility": "Y",
+        "fraudEligibility": null,
+        "digitalWalletQualificationList": [
+          {
+            "type": "isPazeWalletQualified",
+            "eligibility": "Y"
+          }
+        ],
+        "eligibleForPinReplacement": "N"
+      },
+      "statusFlagProfile": {
+        "mobileLinkFlag": true,
+        "currentAvailableBalanceFlag": null,
+        "delinquencyFlag": false,
+        "creditLineFlag": false,
+        "paidUsingExternalProfileFlag": null,
+        "overdraftFlag": false
+      },
+      "customers": [
+        {
+          "relationshipEndDate": null,
+          "mail": null,
+          "taxIdentifier": {
+            "identifierValue": "312456789",
+            "identifierType": {
+              "code": null,
+              "value": "SSN"
+            }
+          },
+          "profileRole": [
+            {
+              "identifierCode": "OWN",
+              "identifierValue": "OWNER"
+            }
+          ],
+          "originalName": null
+        }
+      ],
+      "mailingAddress": {
+        "addressIdentifier": null,
+        "lastModifiedTimeStamp": 155432467900,
+        "streetAddressLine": ["5678 Oak Lane"],
+        "city": "Dallas",
+        "countryInfo": {
+          "code": "US",
+          "value": "United States"
+        },
+        "mailRoutingCode": "ES",
+        "zipCode": "75201",
+        "stateInfo": {
+          "codeInfo": "TX",
+          "valueInfo": "Texas"
+        }
+      },
+      "ledgerBalInfo": {
+        "amt": 3245.67,
+        "currency": { "code": "USD" },
+        "displayAmt": null
+      },
+      "currentBalInfo": {
+        "amt": 3245.67,
+        "currency": { "code": "USD" },
+        "displayAmt": null
+      },
+      "routingDetails": {
+        "number": "111000025",
+        "type": "ABA_Transit"
+      },
+      "displayName": "Alex Checking - 3579",
+      "isMlAccount": null,
+      "availableBalInfo": {
+        "amt": 3120.42,
+        "currency": null,
+        "displayAmt": null
+      },
+      "availableCreditInfo": {
+        "amt": 0.00,
+        "currency": { "code": "USD" }
+      },
+      "wireRoutingInfo": {
+        "number": "026009593",
+        "type": null,
+        "otherType": null
+      },
+      "displayQualificationProfile": {
+        "billPaymentDisplayQualification": null,
+        "paperSuppressionDisplayEligibilityInfo": "Y"
+      }
+    }
+  ]
+}

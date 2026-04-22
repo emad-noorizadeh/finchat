@@ -1,0 +1,564 @@
+{
+  "profile": {
+    "finishingDate": null,
+    "usersOtherNames": [],
+    "beginningDate": 167654567000,
+    "mailingAddress": {
+      "addressIdentifier": null,
+      "lastChange": null,
+      "lastRequested": null,
+      "streetAddressLine": ["1234 somewhere in TX"],
+      "city": "Texas",
+      "countryInfo": {
+        "code": "US",
+        "value": "United States"
+      },
+      "mailCodeInfo": null,
+      "zipCode": "33602",
+      "state": {
+        "code": "FL",
+        "value": "FLORIDA"
+      }
+    },
+    "hyperInfo": null,
+    "countryEntInfo": {
+      "code": "1004321",
+      "value": "United States"
+    },
+    "email": null,
+    "lastModifiedTimeStamp": 12456764532,
+    "taxIdInfo": {
+      "taxIdentifier": "245432532",
+      "type": "SSN_US"
+    },
+    "userLanguagePref": {
+      "code": "en",
+      "value": "English"
+    },
+    "userIdentifier": {
+      "customerLoginId": "aryash",
+      "uniqueId": 15035328492,
+      "type": "personal"
+    },
+    "businessSegment": {
+      "code": "Consumer",
+      "name": "Consumer"
+    },
+    "statusFlagProfile": {
+      "isSMBProfile": false,
+      "isOTPResetEligible": false,
+      "isExternalTransfersEligible": true,
+      "isEligibleForEnhancedTransfer": true,
+      "isMerrillAdvisedClient": false,
+      "isJointAccountHolder": false,
+      "isPrivateBankClient": false,
+      "isOverdraftAlertEnabled": false,
+      "isBenefitsOnlineUser": false
+    },
+    "qualificationProfile": {
+      "isPeer2PeerEligible": "Y",
+      "isTransfersEligible": "Y",
+      "isCardReissuanceEligible": "N",
+      "billPaymentQualification": null,
+      "inboundTransfersQualification": null,
+      "peerTransferEligibility": null,
+      "balanceTransferQualification": null,
+      "fraudEligibility": null,
+      "digitalWalletQualificationList": [
+        {
+          "type": "isPazeWalletQualified",
+          "eligibility": "Y"
+        }
+      ],
+      "eligibleForPinReplacement": "N"
+    },
+    "rewardsProfile": {
+      "enrollmentStatus": "ENROLLED",
+      "currentTier": "PREFERRED_REWARDS",
+      "tierLevel": "PREFERRED_PLUS",
+      "tierDisplayName": "Preferred Rewards - Preferred Plus",
+      "qualifyingBalance": 70000.00,
+      "tierThreshold": 100000.00,
+      "nextTierThreshold": 100000000.00,
+      "nextTierName": "Honors",
+      "enrollmentDate": "2021-03-10",
+      "tierEffectiveDate": "2024-07-01",
+      "benefits": [
+        {
+          "benefitType": "BONUS_INTEREST",
+          "benefitDescription": "50% interest rate booster on savings accounts",
+          "benefitStatus": "ACTIVE"
+        },
+        {
+          "benefitType": "ATM_FEE_REBATE",
+          "benefitDescription": "Unlimited non-bank ATM fee rebates",
+          "benefitStatus": "ACTIVE"
+        },
+        {
+          "benefitType": "NO_MONTHLY_FEE",
+          "benefitDescription": "Monthly maintenance fee waiver on eligible checking and savings accounts",
+          "benefitStatus": "ACTIVE"
+        },
+        {
+          "benefitType": "CREDIT_CARD_BONUS",
+          "benefitDescription": "50% bonus on credit card rewards earned on every purchase",
+          "benefitStatus": "ACTIVE"
+        },
+        {
+          "benefitType": "MORTGAGE_DISCOUNT",
+          "benefitDescription": "Origination fee reduction on home loans",
+          "benefitStatus": "ACTIVE"
+        }
+      ]
+    },
+    "userRole": {
+      "code": "Minor",
+      "value": "false"
+    },
+    "experimentalFeatureFlag": [
+      {
+        "componentID": null,
+        "configurationName": "Transfers-Flag",
+        "level": "Y"
+      },
+      {
+        "componentID": null,
+        "configurationName": "Search-Flag",
+        "level": "Y"
+      }
+    ],
+    "serviceFeatureFlags": [
+      {
+        "name": "SearchRecentTransactions",
+        "indicator": true,
+        "level": "FULL"
+      }
+    ],
+    "userLoginTimesets": [
+      {
+        "name": "Desktop",
+        "time": 1774566890
+      },
+      {
+        "name": "MobileApp",
+        "time": 1238476372
+      }
+    ],
+    "displayQualificationProfile": {
+      "billPaymentDisplayQualification": null,
+      "yearEndStatementQualificationEligibility": "N",
+      "paperSuppressionDisplayEligibilityInfo": "Y"
+    },
+    "userSalesEligibilityProfile": {
+      "isAccountEligibleForDeals": "N",
+      "isCustomerEligibleForDeals": "N"
+    },
+    "displayFlagProfile": {
+      "userTransactionsIndicator": null,
+      "userPaymentActivityModuleList": [
+        {
+          "module": "consWire",
+          "indicator": true
+        },
+        {
+          "module": "MLWires",
+          "indicator": false
+        }
+      ]
+    },
+    "userServiceEligibilities": {
+      "newCardEligibility": "N",
+      "newUserOnboarding": "N"
+    },
+    "userBirthDate": 72156789300,
+    "userAge": 31,
+    "profileName": {
+      "userName": "Arya",
+      "firstName": "Arya",
+      "lastName": null
+    },
+    "hasGoals": true,
+    "goals": [
+      {
+        "goalType": "SAVINGS",
+        "goalName": "Emergency Fund",
+        "goalStatus": "COMPLETE",
+        "goalTarget": 1800.00,
+        "currentSaved": 1800.00,
+        "completionDate": "03/01/2026",
+        "linkedAccountTempId": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie"
+      }
+    ],
+    "scoreDetails": [
+      { "score": 800, "assessmentDate": "2026-02-28", "assessmentCat": "Excellent" },
+      { "score": 774, "assessmentDate": "2026-01-31", "assessmentCat": "Good" },
+      { "score": 760, "assessmentDate": "2025-12-31", "assessmentCat": "Good" },
+      { "score": 760, "assessmentDate": "2025-11-30", "assessmentCat": "Good" },
+      { "score": 751, "assessmentDate": "2025-10-31", "assessmentCat": "Good" },
+      { "score": 750, "assessmentDate": "2025-09-30", "assessmentCat": "Good" }
+    ],
+    "hasAccountInBadStatus": [
+      {
+        "code": "1",
+        "value": false,
+        "reason": null,
+        "description": "Balance Status"
+      }
+    ]
+  },
+  "accounts": [
+    {
+      "identityDetails": {
+        "platformCode": "NEW1",
+        "moduleCode": "004",
+        "accountReference": "900000000000987654321",
+        "alphaEntityKey": "BC",
+        "orgCode": "0999",
+        "accountClassification": "PERSONAL",
+        "offeringVariant": "MA",
+        "type": {
+          "name": null,
+          "shortDescription": "Personal",
+          "longDescription": "Retail"
+        }
+      },
+      "displayAccountReference": "987654321",
+      "accountTempId": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie",
+      "businessSegment": {
+        "code": "Consumer",
+        "name": "Consumer",
+        "description": null,
+        "hierarchyCode": null
+      },
+      "beginningDate": 146099280800,
+      "finishingDate": null,
+      "qualificationProfile": {
+        "billPaymentQualification": "Y",
+        "inboundTransfersQualification": "Y",
+        "outboundTransferQualification": "Y",
+        "peerTransferEligibility": "Y",
+        "balanceTransferQualification": "Y",
+        "digitalChannelTransferEligibility": "Y",
+        "fraudEligibility": null,
+        "digitalWalletQualificationList": [
+          {
+            "type": "isPazeWalletQualified",
+            "eligibility": "Y"
+          }
+        ],
+        "eligibleForPinReplacement": "N"
+      },
+      "statusFlagProfile": {
+        "mobileLinkFlag": false,
+        "currentAvailableBalanceFlag": null,
+        "delinquencyFlag": false,
+        "creditLineFlag": false,
+        "paidUsingExternalProfileFlag": null,
+        "overdraftFlag": false
+      },
+      "customers": [
+        {
+          "relationshipEndDate": null,
+          "mail": null,
+          "taxIdentifier": {
+            "identifierValue": "4526742345",
+            "identifierType": {
+              "code": null,
+              "value": "SSN"
+            }
+          },
+          "profileRole": [
+            {
+              "identifierCode": "OWN",
+              "identifierValue": "OWNER"
+            }
+          ],
+          "originalName": null
+        }
+      ],
+      "mailingAddress": {
+        "addressIdentifier": null,
+        "lastModifiedTimeStamp": 145432467900,
+        "streetAddressLine": ["123 somewhere on TX"],
+        "city": "Texas",
+        "countryInfo": {
+          "code": "US",
+          "value": "United States"
+        },
+        "mailRoutingCode": "ES",
+        "zipCode": "77019-2812",
+        "stateInfo": {
+          "codeInfo": "TX",
+          "valueInfo": "Texas"
+        }
+      },
+      "ledgerBalInfo": {
+        "amt": 1800.00,
+        "currency": { "code": "USD" },
+        "displayAmt": null
+      },
+      "currentBalInfo": {
+        "amt": 1800.00,
+        "currency": { "code": "USD" },
+        "displayAmt": null
+      },
+      "routingDetails": {
+        "number": "110000042",
+        "type": "ABA_Transit"
+      },
+      "displayName": "My Savings Accnt - 1234",
+      "isMlAccount": null,
+      "availableBalInfo": {
+        "amt": 1800.00,
+        "currency": null,
+        "displayAmt": null
+      },
+      "availableCreditInfo": {
+        "amt": 1800.00,
+        "currency": { "code": "USD" }
+      },
+      "wireRoutingInfo": {
+        "number": "02600878",
+        "type": null,
+        "otherType": null
+      },
+      "displayQualificationProfile": {
+        "billPaymentDisplayQualification": null,
+        "paperSuppressionDisplayEligibilityInfo": "Y"
+      }
+    },
+    {
+      "identityDetails": {
+        "platformCode": "NEW1",
+        "moduleCode": "001",
+        "accountReference": "900000000000123456789",
+        "alphaEntityKey": "BC",
+        "orgCode": "0999",
+        "accountClassification": "PERSONAL",
+        "offeringVariant": "CK",
+        "type": {
+          "name": null,
+          "shortDescription": "Personal",
+          "longDescription": "Retail"
+        }
+      },
+      "displayAccountReference": "123456789",
+      "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+      "businessSegment": {
+        "code": "Consumer",
+        "name": "Consumer",
+        "description": null,
+        "hierarchyCode": null
+      },
+      "beginningDate": 146099280800,
+      "finishingDate": null,
+      "qualificationProfile": {
+        "billPaymentQualification": "Y",
+        "inboundTransfersQualification": "Y",
+        "outboundTransferQualification": "Y",
+        "peerTransferEligibility": "Y",
+        "balanceTransferQualification": "Y",
+        "digitalChannelTransferEligibility": "Y",
+        "fraudEligibility": null,
+        "digitalWalletQualificationList": [
+          {
+            "type": "isPazeWalletQualified",
+            "eligibility": "Y"
+          }
+        ],
+        "eligibleForPinReplacement": "N"
+      },
+      "statusFlagProfile": {
+        "mobileLinkFlag": true,
+        "currentAvailableBalanceFlag": null,
+        "delinquencyFlag": false,
+        "creditLineFlag": false,
+        "paidUsingExternalProfileFlag": null,
+        "overdraftFlag": false
+      },
+      "customers": [
+        {
+          "relationshipEndDate": null,
+          "mail": null,
+          "taxIdentifier": {
+            "identifierValue": "4526742345",
+            "identifierType": {
+              "code": null,
+              "value": "SSN"
+            }
+          },
+          "profileRole": [
+            {
+              "identifierCode": "OWN",
+              "identifierValue": "OWNER"
+            }
+          ],
+          "originalName": null
+        }
+      ],
+      "mailingAddress": {
+        "addressIdentifier": null,
+        "lastModifiedTimeStamp": 145432467900,
+        "streetAddressLine": ["1234 somewhere in TX"],
+        "city": "Texas",
+        "countryInfo": {
+          "code": "US",
+          "value": "United States"
+        },
+        "mailRoutingCode": "ES",
+        "zipCode": "77019-2812",
+        "stateInfo": {
+          "codeInfo": "TX",
+          "valueInfo": "Texas"
+        }
+      },
+      "ledgerBalInfo": {
+        "amt": 45230.75,
+        "currency": { "code": "USD" },
+        "displayAmt": null
+      },
+      "currentBalInfo": {
+        "amt": 45230.75,
+        "currency": { "code": "USD" },
+        "displayAmt": null
+      },
+      "routingDetails": {
+        "number": "110000042",
+        "type": "ABA_Transit"
+      },
+      "displayName": "My Checking Accnt - 6789",
+      "isMlAccount": null,
+      "availableBalInfo": {
+        "amt": 44980.50,
+        "currency": null,
+        "displayAmt": null
+      },
+      "availableCreditInfo": {
+        "amt": 0.00,
+        "currency": { "code": "USD" }
+      },
+      "wireRoutingInfo": {
+        "number": "02600878",
+        "type": null,
+        "otherType": null
+      },
+      "displayQualificationProfile": {
+        "billPaymentDisplayQualification": null,
+        "paperSuppressionDisplayEligibilityInfo": "Y"
+      }
+    },
+    {
+      "identityDetails": {
+        "platformCode": "NEW1",
+        "moduleCode": "007",
+        "accountReference": "900000000000555888222",
+        "alphaEntityKey": "BC",
+        "orgCode": "0999",
+        "accountClassification": "PERSONAL",
+        "offeringVariant": "CC",
+        "type": {
+          "name": null,
+          "shortDescription": "Personal",
+          "longDescription": "Credit Card"
+        }
+      },
+      "displayAccountReference": "555888222",
+      "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+      "businessSegment": {
+        "code": "Consumer",
+        "name": "Consumer",
+        "description": null,
+        "hierarchyCode": null
+      },
+      "beginningDate": 158099280800,
+      "finishingDate": null,
+      "qualificationProfile": {
+        "billPaymentQualification": "N",
+        "inboundTransfersQualification": "N",
+        "outboundTransferQualification": "N",
+        "peerTransferEligibility": "N",
+        "balanceTransferQualification": "Y",
+        "digitalChannelTransferEligibility": "N",
+        "fraudEligibility": null,
+        "digitalWalletQualificationList": [
+          {
+            "type": "isPazeWalletQualified",
+            "eligibility": "Y"
+          }
+        ],
+        "eligibleForPinReplacement": "Y"
+      },
+      "statusFlagProfile": {
+        "mobileLinkFlag": true,
+        "currentAvailableBalanceFlag": null,
+        "delinquencyFlag": false,
+        "creditLineFlag": true,
+        "paidUsingExternalProfileFlag": null,
+        "overdraftFlag": false
+      },
+      "customers": [
+        {
+          "relationshipEndDate": null,
+          "mail": null,
+          "taxIdentifier": {
+            "identifierValue": "4526742345",
+            "identifierType": {
+              "code": null,
+              "value": "SSN"
+            }
+          },
+          "profileRole": [
+            {
+              "identifierCode": "OWN",
+              "identifierValue": "OWNER"
+            }
+          ],
+          "originalName": null
+        }
+      ],
+      "mailingAddress": {
+        "addressIdentifier": null,
+        "lastModifiedTimeStamp": 145432467900,
+        "streetAddressLine": ["1234 somewhere in TX"],
+        "city": "Texas",
+        "countryInfo": {
+          "code": "US",
+          "value": "United States"
+        },
+        "mailRoutingCode": "ES",
+        "zipCode": "77019-2812",
+        "stateInfo": {
+          "codeInfo": "TX",
+          "valueInfo": "Texas"
+        }
+      },
+      "ledgerBalInfo": {
+        "amt": 2340.50,
+        "currency": { "code": "USD" },
+        "displayAmt": null
+      },
+      "currentBalInfo": {
+        "amt": 2340.50,
+        "currency": { "code": "USD" },
+        "displayAmt": null
+      },
+      "routingDetails": null,
+      "displayName": "Cash Rewards Credit Card - 8222",
+      "isMlAccount": null,
+      "availableBalInfo": {
+        "amt": 7659.50,
+        "currency": null,
+        "displayAmt": null
+      },
+      "availableCreditInfo": {
+        "amt": 7659.50,
+        "currency": { "code": "USD" }
+      },
+      "wireRoutingInfo": null,
+      "displayQualificationProfile": {
+        "billPaymentDisplayQualification": null,
+        "paperSuppressionDisplayEligibilityInfo": "Y"
+      }
+    }
+  ]
+}

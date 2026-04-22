@@ -1,0 +1,84 @@
+{
+  "pattern_id": "confirm_then_execute",
+  "display_name": "Confirm, then execute",
+  "description": "Standard regulated flow: parse initial intent, ask for confirmation, execute tool on yes / decline on no.",
+  "suggested_for": ["transfers", "payments", "purchases", "deletions"],
+  "skeleton": {
+    "nodes": [
+      {
+        "id": "parse",
+        "type": "parse_node",
+        "position": {"x": 300, "y": 40},
+        "data": {
+          "label": "Parse",
+          "mode": "llm",
+          "source": "last_user_message",
+          "system_prompt": "Extract the user's intent. Fields not mentioned → null.",
+          "output_schema": {"amount": {"type": "number", "nullable": true}, "confirmed": {"type": "boolean", "nullable": true}},
+          "writes": {"amount": "amount", "confirmed": "confirmed"}
+        }
+      },
+      {
+        "id": "dispatch",
+        "type": "condition_node",
+        "position": {"x": 300, "y": 200},
+        "data": {"label": "Dispatch"}
+      },
+      {
+        "id": "ask_confirm",
+        "type": "interrupt_node",
+        "position": {"x": 120, "y": 360},
+        "data": {
+          "label": "Ask confirmation",
+          "prompt_template": "Confirm ${{variables.amount}}? (yes / no)",
+          "voice_prompt_template": "Confirm ${{variables.amount}}? Say yes or no.",
+          "targets_slot": "confirmed"
+        }
+      },
+      {
+        "id": "do",
+        "type": "tool_call_node",
+        "position": {"x": 480, "y": 360},
+        "data": {
+          "label": "Execute",
+          "tool": "",
+          "params": {},
+          "output_var": "result",
+          "on_error": "abort"
+        }
+      },
+      {
+        "id": "respond_done",
+        "type": "response_node",
+        "position": {"x": 480, "y": 520},
+        "data": {
+          "label": "Done",
+          "return_mode": "to_orchestrator",
+          "text_template": "Done. Confirmation: {{variables.result.confirmation_id}}"
+        }
+      },
+      {
+        "id": "respond_declined",
+        "type": "response_node",
+        "position": {"x": 120, "y": 520},
+        "data": {
+          "label": "Declined",
+          "return_mode": "to_orchestrator",
+          "text_template": "Okay, not going ahead."
+        }
+      }
+    ],
+    "edges": [
+      {"id": "e0", "source": "parse", "target": "dispatch"},
+      {"id": "e1", "source": "dispatch", "target": "respond_done",
+       "predicate": "has(variables.result) && !has(variables.result.status)"},
+      {"id": "e2", "source": "dispatch", "target": "respond_declined",
+       "predicate": "has(variables.confirmed) && variables.confirmed == false"},
+      {"id": "e3", "source": "dispatch", "target": "do",
+       "predicate": "has(variables.amount) && has(variables.confirmed) && variables.confirmed == true"},
+      {"id": "e4", "source": "dispatch", "target": "ask_confirm",
+       "predicate": "has(variables.amount) && !has(variables.confirmed)"},
+      {"id": "e5", "source": "do", "target": "dispatch"}
+    ]
+  }
+}

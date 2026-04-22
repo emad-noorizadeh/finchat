@@ -1,0 +1,152 @@
+{
+  "name": "transfer_money_chat",
+  "agent_name": "transfer_money",
+  "display_name": "Transfer Money (Chat)",
+  "channel": "chat",
+  "template_schema_version": 1,
+  "is_regulated": true,
+  "supported_channels": ["chat"],
+  "suspend_resume_allowed": false,
+  "locked_for_business_user_edit": true,
+  "unsupported_channel_message": "Transfers aren't available on this channel — please use chat or the mobile app.",
+  "entry_node": "parse_open",
+
+  "nodes": [
+    {
+      "id": "parse_open",
+      "type": "parse_node",
+      "data": {
+        "label": "Extract intent",
+        "mode": "llm",
+        "source": "last_user_message",
+        "llm_variant": "sub_agent",
+        "system_prompt": "You are a strict intent extractor for a domestic bank-transfer sub-agent. You do not chat, explain, or ask follow-up questions — you only extract the fields below.\n\n## Task\nRead the user's message and extract the three fields. If the user did not mention a field, set it to null.\n\n## Fields\n- `amount` (number | null) — USD amount the user wants to transfer. Strip '$', commas, and the word 'dollars'. Must be > 0 and ≤ 1,000,000; otherwise null.\n- `from_account_hint` (string | null) — Free-text hint for the SOURCE account. Accept: 'checking', 'savings', 'money market', 'credit card', a last-4 like '6789', or a full account label. Preserve the user's phrasing verbatim.\n- `to_account_hint` (string | null) — Free-text hint for the DESTINATION account. Same vocabulary as `from_account_hint`.\n\n## Rules\n- Never guess, infer, or fabricate a field the user did not mention.\n- If the message is not a transfer request at all, return all nulls.\n- Preserve the user's phrasing for hints — don't rewrite 'checking acct' into 'checking'.\n\n## Examples\n- User: \"transfer $200 from checking to my savings\" → `{amount: 200, from_account_hint: \"checking\", to_account_hint: \"savings\"}`\n- User: \"send 1500 to my credit card 8222\" → `{amount: 1500, from_account_hint: null, to_account_hint: \"credit card 8222\"}`\n- User: \"move money to savings\" → `{amount: null, from_account_hint: null, to_account_hint: \"savings\"}`\n- User: \"pay my credit card\" → `{amount: null, from_account_hint: null, to_account_hint: \"credit card\"}`\n- User: \"what's my balance?\" → all nulls (balance question, not a transfer)\n- User: \"cancel\" → all nulls (abort — the escape classifier handles it)",
+        "output_schema": {
+          "amount": {"type": "number", "nullable": true, "description": "USD amount > 0"},
+          "from_account_hint": {"type": "string", "nullable": true},
+          "to_account_hint": {"type": "string", "nullable": true}
+        },
+        "writes": {
+          "amount": "amount",
+          "from_account_hint": "from_account_hint",
+          "to_account_hint": "to_account_hint"
+        }
+      }
+    },
+
+    {
+      "id": "dispatch",
+      "type": "condition_node",
+      "data": {
+        "label": "Dispatch (deterministic)"
+      }
+    },
+
+    {
+      "id": "load_details",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Load eligible accounts",
+        "tool": "transfer",
+        "action": "get_details",
+        "params": {"transfer_type": "m2m"},
+        "output_var": "transfer_details",
+        "on_error": "abort"
+      }
+    },
+
+    {
+      "id": "resolve_from",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Resolve 'from' hint",
+        "tool": "transfer",
+        "action": "resolve_account",
+        "params": {
+          "hint": "{{variables.from_account_hint}}",
+          "candidates": "{{variables.transfer_details.sourceAccounts}}"
+        },
+        "output_var": "from_account",
+        "on_error": "abort"
+      }
+    },
+    {
+      "id": "resolve_to",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Resolve 'to' hint",
+        "tool": "transfer",
+        "action": "resolve_account",
+        "params": {
+          "hint": "{{variables.to_account_hint}}",
+          "candidates": "{{variables.transfer_details.destinationAccounts}}"
+        },
+        "output_var": "to_account",
+        "on_error": "abort"
+      }
+    },
+
+    {
+      "id": "response_form",
+      "type": "response_node",
+      "data": {
+        "label": "Show transfer form",
+        "return_mode": "widget",
+        "widget": {
+          "widget_type": "transfer_form",
+          "title": "Confirm transfer",
+          "data_template": {
+            "amount": "{{variables.amount}}",
+            "from_account": "{{variables.from_account}}",
+            "to_account": "{{variables.to_account}}",
+            "from_account_hint": "{{variables.from_account_hint}}",
+            "to_account_hint": "{{variables.to_account_hint}}",
+            "source_options": "{{variables.transfer_details.sourceAccounts}}",
+            "target_options": "{{variables.transfer_details.destinationAccounts}}"
+          },
+          "metadata": {"flow": "chat", "transfer_type": "m2m"}
+        }
+      }
+    },
+
+    {
+      "id": "response_escape",
+      "type": "response_node",
+      "data": {
+        "label": "User aborted / topic-change",
+        "is_escape_target": true,
+        "return_mode": "to_orchestrator",
+        "text_template": "Okay, leaving the transfer."
+      }
+    },
+
+    {
+      "id": "response_failed",
+      "type": "response_node",
+      "data": {
+        "label": "Couldn't start transfer",
+        "return_mode": "to_orchestrator",
+        "text_template": "I wasn't able to start the transfer right now. Please try again in a moment."
+      }
+    }
+  ],
+
+  "edges": [
+    {"source": "parse_open", "target": "dispatch"},
+
+    {"source": "dispatch", "target": "response_failed",
+     "predicate": "has(variables.transfer_details) && variables.transfer_details.status == 'ERROR'"},
+    {"source": "dispatch", "target": "load_details",
+     "predicate": "!has(variables.transfer_details)"},
+    {"source": "dispatch", "target": "resolve_from",
+     "predicate": "has(variables.from_account_hint) && !has(variables.from_account)"},
+    {"source": "dispatch", "target": "resolve_to",
+     "predicate": "has(variables.to_account_hint) && !has(variables.to_account)"},
+    {"source": "dispatch", "target": "response_form",
+     "predicate": "true"},
+
+    {"source": "load_details", "target": "dispatch"},
+    {"source": "resolve_from", "target": "dispatch"},
+    {"source": "resolve_to", "target": "dispatch"}
+  ]
+}

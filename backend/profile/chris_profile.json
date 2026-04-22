@@ -1,0 +1,295 @@
+{
+  "profile": {
+    "finishingDate": null,
+    "usersOtherNames": [],
+    "beginningDate": 165454567000,
+    "mailingAddress": {
+      "addressIdentifier": null,
+      "lastChange": null,
+      "lastRequested": null,
+      "streetAddressLine": ["9012 Maple Drive"],
+      "city": "Austin",
+      "countryInfo": {
+        "code": "US",
+        "value": "United States"
+      },
+      "mailCodeInfo": null,
+      "zipCode": "78701",
+      "state": {
+        "code": "TX",
+        "value": "TEXAS"
+      }
+    },
+    "hyperInfo": null,
+    "countryEntInfo": {
+      "code": "1004321",
+      "value": "United States"
+    },
+    "email": null,
+    "lastModifiedTimeStamp": 12656764532,
+    "taxIdInfo": {
+      "taxIdentifier": "478123456",
+      "type": "SSN_US"
+    },
+    "userLanguagePref": {
+      "code": "en",
+      "value": "English"
+    },
+    "userIdentifier": {
+      "customerLoginId": "chrisp",
+      "uniqueId": 15035528194,
+      "type": "personal"
+    },
+    "businessSegment": {
+      "code": "Consumer",
+      "name": "Consumer"
+    },
+    "statusFlagProfile": {
+      "isSMBProfile": false,
+      "isOTPResetEligible": false,
+      "isExternalTransfersEligible": false,
+      "isEligibleForEnhancedTransfer": false,
+      "isMerrillAdvisedClient": false,
+      "isJointAccountHolder": false,
+      "isPrivateBankClient": false,
+      "isOverdraftAlertEnabled": false,
+      "isBenefitsOnlineUser": false
+    },
+    "qualificationProfile": {
+      "isPeer2PeerEligible": "N",
+      "isTransfersEligible": "Y",
+      "isCardReissuanceEligible": "N",
+      "billPaymentQualification": null,
+      "inboundTransfersQualification": null,
+      "peerTransferEligibility": null,
+      "balanceTransferQualification": null,
+      "fraudEligibility": null,
+      "digitalWalletQualificationList": [],
+      "eligibleForPinReplacement": "N"
+    },
+    "rewardsProfile": {
+      "enrollmentStatus": "NOT_ENROLLED",
+      "currentTier": null,
+      "tierLevel": null,
+      "tierDisplayName": null,
+      "qualifyingBalance": 0.00,
+      "tierThreshold": null,
+      "nextTierThreshold": null,
+      "nextTierName": null,
+      "enrollmentDate": null,
+      "tierEffectiveDate": null,
+      "benefits": []
+    },
+    "userRole": {
+      "code": "Minor",
+      "value": "false"
+    },
+    "experimentalFeatureFlag": [
+      {
+        "componentID": null,
+        "configurationName": "Transfers-Flag",
+        "level": "Y"
+      },
+      {
+        "componentID": null,
+        "configurationName": "Search-Flag",
+        "level": "Y"
+      }
+    ],
+    "serviceFeatureFlags": [
+      {
+        "name": "SearchRecentTransactions",
+        "indicator": true,
+        "level": "FULL"
+      }
+    ],
+    "userLoginTimesets": [
+      {
+        "name": "Desktop",
+        "time": 1774266890
+      },
+      {
+        "name": "MobileApp",
+        "time": 1774166372
+      }
+    ],
+    "displayQualificationProfile": {
+      "billPaymentDisplayQualification": null,
+      "yearEndStatementQualificationEligibility": "N",
+      "paperSuppressionDisplayEligibilityInfo": "N"
+    },
+    "userSalesEligibilityProfile": {
+      "isAccountEligibleForDeals": "N",
+      "isCustomerEligibleForDeals": "N"
+    },
+    "displayFlagProfile": {
+      "userTransactionsIndicator": null,
+      "userPaymentActivityModuleList": [
+        {
+          "module": "consWire",
+          "indicator": false
+        },
+        {
+          "module": "MLWires",
+          "indicator": false
+        }
+      ]
+    },
+    "userServiceEligibilities": {
+      "newCardEligibility": "N",
+      "newUserOnboarding": "N"
+    },
+    "userBirthDate": 78156789300,
+    "userAge": 34,
+    "profileName": {
+      "userName": "Chris",
+      "firstName": "Chris",
+      "lastName": null
+    },
+    "hasGoals": true,
+    "goals": [
+      {
+        "goalType": "SAVINGS",
+        "goalName": "Vacation Fund",
+        "goalStatus": "IN_PROGRESS",
+        "goalTarget": 5000.00,
+        "currentSaved": 3250.00,
+        "completionDate": null,
+        "linkedAccountTempId": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6"
+      }
+    ],
+    "scoreDetails": [
+      { "score": 745, "assessmentDate": "2026-02-28", "assessmentCat": "Good" },
+      { "score": 740, "assessmentDate": "2026-01-31", "assessmentCat": "Good" },
+      { "score": 738, "assessmentDate": "2025-12-31", "assessmentCat": "Good" },
+      { "score": 730, "assessmentDate": "2025-11-30", "assessmentCat": "Good" },
+      { "score": 725, "assessmentDate": "2025-10-31", "assessmentCat": "Good" },
+      { "score": 720, "assessmentDate": "2025-09-30", "assessmentCat": "Good" }
+    ],
+    "hasAccountInBadStatus": [
+      {
+        "code": "1",
+        "value": false,
+        "reason": null,
+        "description": "Balance Status"
+      }
+    ]
+  },
+  "accounts": [
+    {
+      "identityDetails": {
+        "platformCode": "NEW1",
+        "moduleCode": "004",
+        "accountReference": "900000000000135792468",
+        "alphaEntityKey": "BC",
+        "orgCode": "0999",
+        "accountClassification": "PERSONAL",
+        "offeringVariant": "MA",
+        "type": {
+          "name": null,
+          "shortDescription": "Personal",
+          "longDescription": "Retail"
+        }
+      },
+      "displayAccountReference": "135792468",
+      "accountTempId": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+      "businessSegment": {
+        "code": "Consumer",
+        "name": "Consumer",
+        "description": null,
+        "hierarchyCode": null
+      },
+      "beginningDate": 155099280800,
+      "finishingDate": null,
+      "qualificationProfile": {
+        "billPaymentQualification": "N",
+        "inboundTransfersQualification": "Y",
+        "outboundTransferQualification": "Y",
+        "peerTransferEligibility": "N",
+        "balanceTransferQualification": "N",
+        "digitalChannelTransferEligibility": "Y",
+        "fraudEligibility": null,
+        "digitalWalletQualificationList": [],
+        "eligibleForPinReplacement": "N"
+      },
+      "statusFlagProfile": {
+        "mobileLinkFlag": true,
+        "currentAvailableBalanceFlag": null,
+        "delinquencyFlag": false,
+        "creditLineFlag": false,
+        "paidUsingExternalProfileFlag": null,
+        "overdraftFlag": false
+      },
+      "customers": [
+        {
+          "relationshipEndDate": null,
+          "mail": null,
+          "taxIdentifier": {
+            "identifierValue": "478123456",
+            "identifierType": {
+              "code": null,
+              "value": "SSN"
+            }
+          },
+          "profileRole": [
+            {
+              "identifierCode": "OWN",
+              "identifierValue": "OWNER"
+            }
+          ],
+          "originalName": null
+        }
+      ],
+      "mailingAddress": {
+        "addressIdentifier": null,
+        "lastModifiedTimeStamp": 150432467900,
+        "streetAddressLine": ["9012 Maple Drive"],
+        "city": "Austin",
+        "countryInfo": {
+          "code": "US",
+          "value": "United States"
+        },
+        "mailRoutingCode": "ES",
+        "zipCode": "78701",
+        "stateInfo": {
+          "codeInfo": "TX",
+          "valueInfo": "Texas"
+        }
+      },
+      "ledgerBalInfo": {
+        "amt": 12450.33,
+        "currency": { "code": "USD" },
+        "displayAmt": null
+      },
+      "currentBalInfo": {
+        "amt": 12450.33,
+        "currency": { "code": "USD" },
+        "displayAmt": null
+      },
+      "routingDetails": {
+        "number": "111000025",
+        "type": "ABA_Transit"
+      },
+      "displayName": "Chris Savings - 2468",
+      "isMlAccount": null,
+      "availableBalInfo": {
+        "amt": 12450.33,
+        "currency": null,
+        "displayAmt": null
+      },
+      "availableCreditInfo": {
+        "amt": 12450.33,
+        "currency": { "code": "USD" }
+      },
+      "wireRoutingInfo": {
+        "number": "026009593",
+        "type": null,
+        "otherType": null
+      },
+      "displayQualificationProfile": {
+        "billPaymentDisplayQualification": null,
+        "paperSuppressionDisplayEligibilityInfo": "N"
+      }
+    }
+  ]
+}

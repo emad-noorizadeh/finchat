@@ -1,0 +1,57 @@
+{
+  "pattern_id": "collect_one_slot",
+  "display_name": "Collect one slot, then respond",
+  "description": "Minimal slot-collection loop: parse → dispatch → (interrupt on missing) → parse → … → respond.",
+  "suggested_for": ["small lookups", "single-question flows", "account number capture"],
+  "skeleton": {
+    "nodes": [
+      {
+        "id": "parse",
+        "type": "parse_node",
+        "position": {"x": 300, "y": 40},
+        "data": {
+          "label": "Parse",
+          "mode": "llm",
+          "source": "last_user_message",
+          "system_prompt": "Extract the needed field. If not mentioned, return null.",
+          "output_schema": {"value": {"type": "string", "nullable": true}},
+          "writes": {"value": "value"}
+        }
+      },
+      {
+        "id": "dispatch",
+        "type": "condition_node",
+        "position": {"x": 300, "y": 200},
+        "data": {"label": "Dispatch"}
+      },
+      {
+        "id": "ask",
+        "type": "interrupt_node",
+        "position": {"x": 120, "y": 360},
+        "data": {
+          "label": "Ask",
+          "prompt_template": "What value?",
+          "voice_prompt_template": "What value?",
+          "targets_slot": "value"
+        }
+      },
+      {
+        "id": "respond",
+        "type": "response_node",
+        "position": {"x": 480, "y": 360},
+        "data": {
+          "label": "Respond",
+          "return_mode": "to_orchestrator",
+          "text_template": "Got it: {{variables.value}}."
+        }
+      }
+    ],
+    "edges": [
+      {"id": "e0", "source": "parse", "target": "dispatch"},
+      {"id": "e1", "source": "dispatch", "target": "respond",
+       "predicate": "has(variables.value)"},
+      {"id": "e2", "source": "dispatch", "target": "ask",
+       "predicate": "true"}
+    ]
+  }
+}

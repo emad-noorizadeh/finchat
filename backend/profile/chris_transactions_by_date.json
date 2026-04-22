@@ -1,0 +1,349 @@
+{
+  "responseData": {
+    "filterType": "DATE",
+    "activityRecords": [
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260407-00006",
+        "primaryDescription": "ATM Withdrawal - Branch #3305",
+        "classificationCode": "00",
+        "settlementDate": "04/07/2026",
+        "transactionAmount": "$200.00",
+        "entryDirection": "debit",
+        "statusDescription": "ATM cash withdrawal on 04/07",
+        "originDate": "04/07/2026",
+        "processingState": "completed",
+        "activityClassifier": "atm",
+        "displayCategory": "ATM_WITHDRAWAL",
+        "authorizedAmount": "200.00"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260405-00004",
+        "primaryDescription": "External Transfer Out - Chase Checking",
+        "classificationCode": "10",
+        "settlementDate": "04/05/2026",
+        "transactionAmount": "$500.00",
+        "entryDirection": "debit",
+        "statusDescription": "External transfer sent on 04/05",
+        "originDate": "04/05/2026",
+        "processingState": "completed",
+        "activityClassifier": "ach",
+        "displayCategory": "TRANSFER_EXTERNAL",
+        "authorizedAmount": "500.00"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260403-00016",
+        "primaryDescription": "Wire Transfer In - Tax Refund",
+        "classificationCode": "15",
+        "settlementDate": "04/03/2026",
+        "transactionAmount": "$1,843.00",
+        "entryDirection": "credit",
+        "statusDescription": "Wire transfer received on 04/03",
+        "originDate": "04/03/2026",
+        "processingState": "completed",
+        "activityClassifier": "wire",
+        "displayCategory": "TRANSFER_WIRE",
+        "authorizedAmount": "1843.00"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260401-00001",
+        "primaryDescription": "External Transfer In - Chase Checking",
+        "classificationCode": "10",
+        "settlementDate": "04/01/2026",
+        "transactionAmount": "$2,000.00",
+        "entryDirection": "credit",
+        "statusDescription": "External transfer received on 04/01",
+        "originDate": "04/01/2026",
+        "processingState": "completed",
+        "activityClassifier": "ach",
+        "displayCategory": "TRANSFER_EXTERNAL",
+        "authorizedAmount": "2000.00"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260331-00011",
+        "primaryDescription": "Interest Accrual - March",
+        "classificationCode": "12",
+        "settlementDate": "03/31/2026",
+        "transactionAmount": "$9.15",
+        "entryDirection": "credit",
+        "statusDescription": "Monthly interest credited on 03/31",
+        "originDate": "03/31/2026",
+        "processingState": "completed",
+        "activityClassifier": "interest",
+        "displayCategory": "INTEREST_CREDIT",
+        "authorizedAmount": "9.15"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260331-00012",
+        "primaryDescription": "Savings Account Monthly Fee",
+        "classificationCode": "30",
+        "settlementDate": "03/31/2026",
+        "transactionAmount": "$5.00",
+        "entryDirection": "debit",
+        "statusDescription": "Monthly service charge assessed",
+        "originDate": "03/31/2026",
+        "processingState": "completed",
+        "activityClassifier": "fee",
+        "displayCategory": "FEE_MONTHLY",
+        "authorizedAmount": "5.00"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260328-00017",
+        "primaryDescription": "Excess Transaction Fee",
+        "classificationCode": "30",
+        "settlementDate": "03/28/2026",
+        "transactionAmount": "$10.00",
+        "entryDirection": "debit",
+        "statusDescription": "Exceeded monthly withdrawal limit",
+        "originDate": "03/28/2026",
+        "processingState": "completed",
+        "activityClassifier": "fee",
+        "displayCategory": "FEE_EXCESS_TRANSACTION",
+        "authorizedAmount": "10.00"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260325-00007",
+        "primaryDescription": "ATM Withdrawal - Branch #3305",
+        "classificationCode": "00",
+        "settlementDate": "03/25/2026",
+        "transactionAmount": "$100.00",
+        "entryDirection": "debit",
+        "statusDescription": "ATM cash withdrawal on 03/25",
+        "originDate": "03/25/2026",
+        "processingState": "completed",
+        "activityClassifier": "atm",
+        "displayCategory": "ATM_WITHDRAWAL",
+        "authorizedAmount": "100.00"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260320-00005",
+        "primaryDescription": "External Transfer Out - Chase Checking",
+        "classificationCode": "10",
+        "settlementDate": "03/20/2026",
+        "transactionAmount": "$750.00",
+        "entryDirection": "debit",
+        "statusDescription": "External transfer sent on 03/20",
+        "originDate": "03/20/2026",
+        "processingState": "completed",
+        "activityClassifier": "ach",
+        "displayCategory": "TRANSFER_EXTERNAL",
+        "authorizedAmount": "750.00"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260315-00002",
+        "primaryDescription": "External Transfer In - Chase Checking",
+        "classificationCode": "10",
+        "settlementDate": "03/15/2026",
+        "transactionAmount": "$2,000.00",
+        "entryDirection": "credit",
+        "statusDescription": "External transfer received on 03/15",
+        "originDate": "03/15/2026",
+        "processingState": "completed",
+        "activityClassifier": "ach",
+        "displayCategory": "TRANSFER_EXTERNAL",
+        "authorizedAmount": "2000.00"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260315-00010",
+        "primaryDescription": "Interest Accrual - March (partial)",
+        "classificationCode": "12",
+        "settlementDate": "03/15/2026",
+        "transactionAmount": "$8.42",
+        "entryDirection": "credit",
+        "statusDescription": "Interest credited on 03/15",
+        "originDate": "03/15/2026",
+        "processingState": "completed",
+        "activityClassifier": "interest",
+        "displayCategory": "INTEREST_CREDIT",
+        "authorizedAmount": "8.42"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260310-00008",
+        "primaryDescription": "ATM Withdrawal - Non-Bank ATM",
+        "classificationCode": "00",
+        "settlementDate": "03/10/2026",
+        "transactionAmount": "$60.00",
+        "entryDirection": "debit",
+        "statusDescription": "ATM cash withdrawal on 03/10",
+        "originDate": "03/10/2026",
+        "processingState": "completed",
+        "activityClassifier": "atm",
+        "displayCategory": "ATM_WITHDRAWAL",
+        "authorizedAmount": "60.00"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260310-00009",
+        "primaryDescription": "Non-Bank ATM Fee",
+        "classificationCode": "30",
+        "settlementDate": "03/10/2026",
+        "transactionAmount": "$2.50",
+        "entryDirection": "debit",
+        "statusDescription": "ATM surcharge assessed",
+        "originDate": "03/10/2026",
+        "processingState": "completed",
+        "activityClassifier": "fee",
+        "displayCategory": "FEE_ATM",
+        "authorizedAmount": "2.50"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260305-00018",
+        "primaryDescription": "Mobile Check Deposit #9034",
+        "classificationCode": "03",
+        "settlementDate": "03/05/2026",
+        "transactionAmount": "$275.00",
+        "entryDirection": "credit",
+        "statusDescription": "Mobile deposit cleared on 03/05",
+        "originDate": "03/04/2026",
+        "processingState": "completed",
+        "activityClassifier": "check_deposit",
+        "displayCategory": "DEPOSIT_CHECK",
+        "authorizedAmount": "275.00"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260301-00003",
+        "primaryDescription": "External Transfer In - Chase Checking",
+        "classificationCode": "10",
+        "settlementDate": "03/01/2026",
+        "transactionAmount": "$2,000.00",
+        "entryDirection": "credit",
+        "statusDescription": "External transfer received on 03/01",
+        "originDate": "03/01/2026",
+        "processingState": "completed",
+        "activityClassifier": "ach",
+        "displayCategory": "TRANSFER_EXTERNAL",
+        "authorizedAmount": "2000.00"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260228-00013",
+        "primaryDescription": "Savings Account Monthly Fee",
+        "classificationCode": "30",
+        "settlementDate": "02/28/2026",
+        "transactionAmount": "$5.00",
+        "entryDirection": "debit",
+        "statusDescription": "Monthly service charge assessed",
+        "originDate": "02/28/2026",
+        "processingState": "completed",
+        "activityClassifier": "fee",
+        "displayCategory": "FEE_MONTHLY",
+        "authorizedAmount": "5.00"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260228-00014",
+        "primaryDescription": "Interest Accrual - February",
+        "classificationCode": "12",
+        "settlementDate": "02/28/2026",
+        "transactionAmount": "$7.88",
+        "entryDirection": "credit",
+        "statusDescription": "Monthly interest credited on 02/28",
+        "originDate": "02/28/2026",
+        "processingState": "completed",
+        "activityClassifier": "interest",
+        "displayCategory": "INTEREST_CREDIT",
+        "authorizedAmount": "7.88"
+      },
+      {
+        "linkedAccount": {
+          "accountLabel": "Chris Savings - 2468",
+          "accessToken": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+          "productCategory": "SDA"
+        },
+        "activityReference": "TXN-SAV-20260215-00015",
+        "primaryDescription": "External Transfer In - Chase Checking",
+        "classificationCode": "10",
+        "settlementDate": "02/15/2026",
+        "transactionAmount": "$1,500.00",
+        "entryDirection": "credit",
+        "statusDescription": "External transfer received on 02/15",
+        "originDate": "02/15/2026",
+        "processingState": "completed",
+        "activityClassifier": "ach",
+        "displayCategory": "TRANSFER_EXTERNAL",
+        "authorizedAmount": "1500.00"
+      }
+    ]
+  }
+}

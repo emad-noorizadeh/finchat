@@ -1,0 +1,118 @@
+{
+  "fee_transactions": {
+    "accountDetails": {
+      "accountTempId": "ALXcc9Vn5xTrK3bYw1dQfHv8cEaZoUiTj6lMwKe4hXnBpRq2tVyCuOiSmPzRx",
+      "accountLabel": "Unlimited Cash Rewards Credit Card - 8026",
+      "displayAccountReference": "817264073",
+      "accountReference": "000000000000817264073",
+      "alphaEntityKey": "CRD",
+      "offeringVariant": "CC",
+      "accountClassification": "PERSONAL",
+      "feeRefundEligibility": "Y",
+      "creditLineInfo": {
+        "creditLimit": 5000.0,
+        "currentBalance": 1247.83,
+        "availableCredit": 3752.17,
+        "annualPercentageRate": 21.99,
+        "lastStatementDate": "2026-02-25",
+        "lastStatementBalance": 1180.42
+      }
+    },
+    "refundableTransactions": [
+      {
+        "linkedAccount": {
+          "accountTempId": "ALXcc9Vn5xTrK3bYw1dQfHv8cEaZoUiTj6lMwKe4hXnBpRq2tVyCuOiSmPzRx",
+          "accountLabel": "Unlimited Cash Rewards Credit Card - 8026",
+          "offeringVariant": "CREDIT_CARD"
+        },
+        "activityReference": "TXN-CC-20260306-00110",
+        "primaryDescription": "late fee",
+        "classificationCode": "55",
+        "settlementDate": "",
+        "transactionAmount": "$28.00",
+        "entryDirection": "debit",
+        "statusDescription": "late fee for CC",
+        "originDate": "02/08/2026",
+        "processingState": "completed",
+        "activityClassifier": "pos",
+        "displayCategory": "FEES",
+        "authorizedAmount": "28.00",
+        "feeType": "LATE_FEE"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "ALXcc9Vn5xTrK3bYw1dQfHv8cEaZoUiTj6lMwKe4hXnBpRq2tVyCuOiSmPzRx",
+          "accountLabel": "Unlimited Cash Rewards Credit Card - 8026",
+          "offeringVariant": "CREDIT_CARD"
+        },
+        "activityReference": "TXN-CC-20260218-00227",
+        "primaryDescription": "cash advance interest",
+        "classificationCode": "62",
+        "settlementDate": "",
+        "transactionAmount": "$15.42",
+        "entryDirection": "debit",
+        "statusDescription": "cash advance interest charge for CC",
+        "originDate": "02/18/2026",
+        "processingState": "completed",
+        "activityClassifier": "finance_charge",
+        "displayCategory": "FEES",
+        "authorizedAmount": "15.42",
+        "feeType": "CASH_ADVANCE_INTEREST"
+      }
+    ],
+    "totalRefundableAmount": 43.42,
+    "refundableTransactionCount": 2
+  },
+
+  "refund_approved": {
+    "refundDecision": "APPROVED",
+    "refundAmount": 28.0,
+    "decisionReason": "First late fee occurrence in 12 months - courtesy refund approved for long-standing account holder",
+    "evaluationCode": "EVAL-COURTESY",
+    "decisionDetails": {
+      "hardshipIndicator": false,
+      "statementIssueIndicator": false,
+      "bankErrorIndicator": false,
+      "recentRefundIndicator": false,
+      "accountStandingQualified": true,
+      "priorRefundCountWithinLimit": true
+    },
+    "conditionsEvaluated": [
+      {"conditionName": "ACCOUNT_STATUS",         "conditionResult": "PASS",           "conditionDetail": "Account is active and in good standing"},
+      {"conditionName": "PRIOR_REFUND_HISTORY",   "conditionResult": "PASS",           "conditionDetail": "0 refunds in last 12 months - within allowed threshold of 2"},
+      {"conditionName": "TRANSACTION_TYPE",       "conditionResult": "PASS",           "conditionDetail": "LATE_FEE is an eligible fee type for courtesy refund"},
+      {"conditionName": "HARDSHIP_CHECK",         "conditionResult": "NOT_APPLICABLE", "conditionDetail": "No hardship indicators on account"},
+      {"conditionName": "BANK_ERROR_CHECK",       "conditionResult": "NOT_APPLICABLE", "conditionDetail": "No bank error flags detected"},
+      {"conditionName": "STATEMENT_ISSUE_CHECK",  "conditionResult": "NOT_APPLICABLE", "conditionDetail": "No statement delivery issues found"}
+    ],
+    "refundTrackingId": "RFD-20260313-CC8026-70001",
+    "effectiveDate": "2026-03-13",
+    "postRefundBalance": 1219.83
+  },
+
+  "refund_denied": {
+    "refundDecision": "DENIED",
+    "refundAmount": 0.0,
+    "decisionReason": "Cash advance interest charge does not qualify for standard refund - no bank error or hardship condition present",
+    "evaluationCode": "EVAL-STANDARD",
+    "decisionDetails": {
+      "hardshipIndicator": false,
+      "statementIssueIndicator": false,
+      "bankErrorIndicator": false,
+      "recentRefundIndicator": true,
+      "accountStandingQualified": true,
+      "priorRefundCountWithinLimit": false
+    },
+    "conditionsEvaluated": [
+      {"conditionName": "ACCOUNT_STATUS",        "conditionResult": "PASS",           "conditionDetail": "Account is active and in good standing"},
+      {"conditionName": "PRIOR_REFUND_HISTORY",  "conditionResult": "FAIL",           "conditionDetail": "1 refund in last 12 months - cash advance interest requires 0 prior refunds for standard evaluation"},
+      {"conditionName": "TRANSACTION_TYPE",      "conditionResult": "FAIL",           "conditionDetail": "CASH_ADVANCE_INTEREST requires bank error or hardship indicator for refund approval"},
+      {"conditionName": "HARDSHIP_CHECK",        "conditionResult": "FAIL",           "conditionDetail": "No hardship indicators on account - required for interest refund without bank error"},
+      {"conditionName": "BANK_ERROR_CHECK",      "conditionResult": "FAIL",           "conditionDetail": "No bank error flags detected"},
+      {"conditionName": "STATEMENT_ISSUE_CHECK", "conditionResult": "NOT_APPLICABLE", "conditionDetail": "No statement delivery issues found"}
+    ],
+    "refundTrackingId": null,
+    "effectiveDate": null,
+    "postRefundBalance": null
+  }
+}

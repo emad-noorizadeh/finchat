@@ -1,0 +1,806 @@
+{
+  "responseData": {
+    "activityRecords": [
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260401-00001",
+        "primaryDescription": "Direct Deposit - Employer Payroll",
+        "classificationCode": "01",
+        "settlementDate": "04/01/2026",
+        "transactionAmount": "$5,420.50",
+        "entryDirection": "credit",
+        "statusDescription": "Payroll deposit received on 04/01",
+        "originDate": "04/01/2026",
+        "processingState": "completed",
+        "activityClassifier": "ach",
+        "displayCategory": "PAYROLL_DIRECT",
+        "authorizedAmount": "5420.50"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260315-00002",
+        "primaryDescription": "Direct Deposit - Employer Payroll",
+        "classificationCode": "01",
+        "settlementDate": "03/15/2026",
+        "transactionAmount": "$5,420.50",
+        "entryDirection": "credit",
+        "statusDescription": "Payroll deposit received on 03/15",
+        "originDate": "03/15/2026",
+        "processingState": "completed",
+        "activityClassifier": "ach",
+        "displayCategory": "PAYROLL_DIRECT",
+        "authorizedAmount": "5420.50"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260301-00003",
+        "primaryDescription": "Direct Deposit - Employer Payroll",
+        "classificationCode": "01",
+        "settlementDate": "03/01/2026",
+        "transactionAmount": "$5,420.50",
+        "entryDirection": "credit",
+        "statusDescription": "Payroll deposit received on 03/01",
+        "originDate": "03/01/2026",
+        "processingState": "completed",
+        "activityClassifier": "ach",
+        "displayCategory": "PAYROLL_DIRECT",
+        "authorizedAmount": "5420.50"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260401-00004",
+        "primaryDescription": "Rent Payment - ACH to Landlord",
+        "classificationCode": "09",
+        "settlementDate": "04/01/2026",
+        "transactionAmount": "$1,750.00",
+        "entryDirection": "debit",
+        "statusDescription": "ACH debit processed on 04/01",
+        "originDate": "04/01/2026",
+        "processingState": "completed",
+        "activityClassifier": "ach",
+        "displayCategory": "PAYMENT_RENT",
+        "authorizedAmount": "1750.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260301-00005",
+        "primaryDescription": "Rent Payment - ACH to Landlord",
+        "classificationCode": "09",
+        "settlementDate": "03/01/2026",
+        "transactionAmount": "$1,750.00",
+        "entryDirection": "debit",
+        "statusDescription": "ACH debit processed on 03/01",
+        "originDate": "03/01/2026",
+        "processingState": "completed",
+        "activityClassifier": "ach",
+        "displayCategory": "PAYMENT_RENT",
+        "authorizedAmount": "1750.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260405-00006",
+        "primaryDescription": "Check #1042 - Auto Insurance Premium",
+        "classificationCode": "02",
+        "settlementDate": "04/05/2026",
+        "transactionAmount": "$312.00",
+        "entryDirection": "debit",
+        "statusDescription": "Check cleared on 04/05",
+        "originDate": "04/03/2026",
+        "processingState": "completed",
+        "activityClassifier": "check",
+        "displayCategory": "CHECK_PAID",
+        "authorizedAmount": "312.00",
+        "checkNumber": "1042"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260318-00007",
+        "primaryDescription": "Check #1041 - Dentist Office",
+        "classificationCode": "02",
+        "settlementDate": "03/18/2026",
+        "transactionAmount": "$175.00",
+        "entryDirection": "debit",
+        "statusDescription": "Check cleared on 03/18",
+        "originDate": "03/16/2026",
+        "processingState": "completed",
+        "activityClassifier": "check",
+        "displayCategory": "CHECK_PAID",
+        "authorizedAmount": "175.00",
+        "checkNumber": "1041"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260402-00008",
+        "primaryDescription": "Zelle Transfer to Maria Garcia",
+        "classificationCode": "09",
+        "settlementDate": "04/02/2026",
+        "transactionAmount": "$75.00",
+        "entryDirection": "debit",
+        "statusDescription": "Peer transfer completed on 04/02",
+        "originDate": "04/02/2026",
+        "processingState": "completed",
+        "activityClassifier": "p2p",
+        "displayCategory": "TRANSFER_ZELLE",
+        "authorizedAmount": "75.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260320-00009",
+        "primaryDescription": "Zelle Payment from Jake Thompson",
+        "classificationCode": "09",
+        "settlementDate": "03/20/2026",
+        "transactionAmount": "$120.00",
+        "entryDirection": "credit",
+        "statusDescription": "Peer transfer received on 03/20",
+        "originDate": "03/20/2026",
+        "processingState": "completed",
+        "activityClassifier": "p2p",
+        "displayCategory": "TRANSFER_ZELLE",
+        "authorizedAmount": "120.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260331-00010",
+        "primaryDescription": "Monthly Maintenance Fee",
+        "classificationCode": "30",
+        "settlementDate": "03/31/2026",
+        "transactionAmount": "$12.00",
+        "entryDirection": "debit",
+        "statusDescription": "Monthly service charge assessed",
+        "originDate": "03/31/2026",
+        "processingState": "completed",
+        "activityClassifier": "fee",
+        "displayCategory": "FEE_MONTHLY",
+        "authorizedAmount": "12.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260331-00011",
+        "primaryDescription": "Monthly Maintenance Fee Waiver - Preferred Rewards",
+        "classificationCode": "30",
+        "settlementDate": "03/31/2026",
+        "transactionAmount": "$12.00",
+        "entryDirection": "credit",
+        "statusDescription": "Fee waiver applied per rewards tier",
+        "originDate": "03/31/2026",
+        "processingState": "completed",
+        "activityClassifier": "fee_reversal",
+        "displayCategory": "FEE_WAIVER",
+        "authorizedAmount": "12.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260322-00012",
+        "primaryDescription": "Non-Bank ATM Fee",
+        "classificationCode": "30",
+        "settlementDate": "03/22/2026",
+        "transactionAmount": "$3.00",
+        "entryDirection": "debit",
+        "statusDescription": "ATM surcharge assessed",
+        "originDate": "03/22/2026",
+        "processingState": "completed",
+        "activityClassifier": "fee",
+        "displayCategory": "FEE_ATM",
+        "authorizedAmount": "3.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260322-00013",
+        "primaryDescription": "Non-Bank ATM Fee Rebate - Preferred Rewards",
+        "classificationCode": "30",
+        "settlementDate": "03/22/2026",
+        "transactionAmount": "$3.00",
+        "entryDirection": "credit",
+        "statusDescription": "ATM fee rebate applied per rewards tier",
+        "originDate": "03/22/2026",
+        "processingState": "completed",
+        "activityClassifier": "fee_reversal",
+        "displayCategory": "FEE_REBATE_ATM",
+        "authorizedAmount": "3.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260404-00014",
+        "primaryDescription": "T-Mobile Wireless Bill Pay",
+        "classificationCode": "09",
+        "settlementDate": "04/04/2026",
+        "transactionAmount": "$85.00",
+        "entryDirection": "debit",
+        "statusDescription": "Bill payment processed on 04/04",
+        "originDate": "04/04/2026",
+        "processingState": "completed",
+        "activityClassifier": "billpay",
+        "displayCategory": "PAYMENT_BILL",
+        "authorizedAmount": "85.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260310-00015",
+        "primaryDescription": "TXU Energy - Electric Bill",
+        "classificationCode": "09",
+        "settlementDate": "03/10/2026",
+        "transactionAmount": "$142.37",
+        "entryDirection": "debit",
+        "statusDescription": "Bill payment processed on 03/10",
+        "originDate": "03/10/2026",
+        "processingState": "completed",
+        "activityClassifier": "billpay",
+        "displayCategory": "PAYMENT_BILL",
+        "authorizedAmount": "142.37"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260308-00016",
+        "primaryDescription": "Netflix Subscription",
+        "classificationCode": "53",
+        "settlementDate": "03/08/2026",
+        "transactionAmount": "$22.99",
+        "entryDirection": "debit",
+        "statusDescription": "Recurring payment processed on 03/08",
+        "originDate": "03/08/2026",
+        "processingState": "completed",
+        "activityClassifier": "recurring",
+        "displayCategory": "PURCHASE_SUBSCRIPTION",
+        "authorizedAmount": "22.99"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260325-00017",
+        "primaryDescription": "Spotify Premium",
+        "classificationCode": "53",
+        "settlementDate": "03/25/2026",
+        "transactionAmount": "$10.99",
+        "entryDirection": "debit",
+        "statusDescription": "Recurring payment processed on 03/25",
+        "originDate": "03/25/2026",
+        "processingState": "completed",
+        "activityClassifier": "recurring",
+        "displayCategory": "PURCHASE_SUBSCRIPTION",
+        "authorizedAmount": "10.99"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260322-00018",
+        "primaryDescription": "ATM Withdrawal - Non-Bank ATM",
+        "classificationCode": "00",
+        "settlementDate": "03/22/2026",
+        "transactionAmount": "$200.00",
+        "entryDirection": "debit",
+        "statusDescription": "ATM cash withdrawal on 03/22",
+        "originDate": "03/22/2026",
+        "processingState": "completed",
+        "activityClassifier": "atm",
+        "displayCategory": "ATM_WITHDRAWAL",
+        "authorizedAmount": "200.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260403-00019",
+        "primaryDescription": "Wire Transfer Out - Security Deposit",
+        "classificationCode": "15",
+        "settlementDate": "04/03/2026",
+        "transactionAmount": "$2,500.00",
+        "entryDirection": "debit",
+        "statusDescription": "Domestic wire transfer sent on 04/03",
+        "originDate": "04/03/2026",
+        "processingState": "completed",
+        "activityClassifier": "wire",
+        "displayCategory": "TRANSFER_WIRE",
+        "authorizedAmount": "2500.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260403-00020",
+        "primaryDescription": "Wire Transfer Fee",
+        "classificationCode": "30",
+        "settlementDate": "04/03/2026",
+        "transactionAmount": "$30.00",
+        "entryDirection": "debit",
+        "statusDescription": "Domestic wire transfer fee",
+        "originDate": "04/03/2026",
+        "processingState": "completed",
+        "activityClassifier": "fee",
+        "displayCategory": "FEE_WIRE",
+        "authorizedAmount": "30.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260315-00021",
+        "primaryDescription": "Mobile Check Deposit #4478",
+        "classificationCode": "03",
+        "settlementDate": "03/15/2026",
+        "transactionAmount": "$350.00",
+        "entryDirection": "credit",
+        "statusDescription": "Mobile deposit cleared on 03/15",
+        "originDate": "03/14/2026",
+        "processingState": "completed",
+        "activityClassifier": "check_deposit",
+        "displayCategory": "DEPOSIT_CHECK",
+        "authorizedAmount": "350.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260406-00022",
+        "primaryDescription": "Costco Wholesale #1234",
+        "classificationCode": "53",
+        "settlementDate": "04/06/2026",
+        "transactionAmount": "$213.87",
+        "entryDirection": "debit",
+        "statusDescription": "Point of sale purchase on 04/06",
+        "originDate": "04/06/2026",
+        "processingState": "completed",
+        "activityClassifier": "pos",
+        "displayCategory": "PURCHASE_RETAIL",
+        "authorizedAmount": "213.87"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260407-00023",
+        "primaryDescription": "Starbucks #5567",
+        "classificationCode": "53",
+        "settlementDate": "04/07/2026",
+        "transactionAmount": "$7.25",
+        "entryDirection": "debit",
+        "statusDescription": "Point of sale purchase on 04/07",
+        "originDate": "04/07/2026",
+        "processingState": "completed",
+        "activityClassifier": "pos",
+        "displayCategory": "PURCHASE_FOOD",
+        "authorizedAmount": "7.25"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260409-00024",
+        "primaryDescription": "Pending - Target Store #0782",
+        "classificationCode": "53",
+        "settlementDate": null,
+        "transactionAmount": "$45.67",
+        "entryDirection": "debit",
+        "statusDescription": "Authorization hold - pending settlement",
+        "originDate": "04/09/2026",
+        "processingState": "pending",
+        "activityClassifier": "pos",
+        "displayCategory": "PURCHASE_RETAIL",
+        "authorizedAmount": "45.67"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "x7yrz82k4m1n5p6q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6",
+          "accountLabel": "My Checking Accnt - 6789",
+          "offeringVariant": "CHECKING"
+        },
+        "activityReference": "TXN-CHK-20260409-00025",
+        "primaryDescription": "Pending - Uber Trip",
+        "classificationCode": "53",
+        "settlementDate": null,
+        "transactionAmount": "$18.42",
+        "entryDirection": "debit",
+        "statusDescription": "Authorization hold - pending settlement",
+        "originDate": "04/09/2026",
+        "processingState": "pending",
+        "activityClassifier": "pos",
+        "displayCategory": "PURCHASE_TRANSPORT",
+        "authorizedAmount": "18.42"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie",
+          "accountLabel": "My Savings Accnt - 1234",
+          "offeringVariant": "SAVINGS"
+        },
+        "activityReference": "TXN-SAV-20260401-00026",
+        "primaryDescription": "Transfer from Checking - Savings Goal",
+        "classificationCode": "10",
+        "settlementDate": "04/01/2026",
+        "transactionAmount": "$500.00",
+        "entryDirection": "credit",
+        "statusDescription": "Scheduled transfer received on 04/01",
+        "originDate": "04/01/2026",
+        "processingState": "completed",
+        "activityClassifier": "transfer",
+        "displayCategory": "TRANSFER_INTERNAL",
+        "authorizedAmount": "500.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie",
+          "accountLabel": "My Savings Accnt - 1234",
+          "offeringVariant": "SAVINGS"
+        },
+        "activityReference": "TXN-SAV-20260301-00027",
+        "primaryDescription": "Transfer from Checking - Savings Goal",
+        "classificationCode": "10",
+        "settlementDate": "03/01/2026",
+        "transactionAmount": "$500.00",
+        "entryDirection": "credit",
+        "statusDescription": "Scheduled transfer received on 03/01",
+        "originDate": "03/01/2026",
+        "processingState": "completed",
+        "activityClassifier": "transfer",
+        "displayCategory": "TRANSFER_INTERNAL",
+        "authorizedAmount": "500.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie",
+          "accountLabel": "My Savings Accnt - 1234",
+          "offeringVariant": "SAVINGS"
+        },
+        "activityReference": "TXN-SAV-20260310-00028",
+        "primaryDescription": "ATM Withdrawal - Branch #2210",
+        "classificationCode": "00",
+        "settlementDate": "03/10/2026",
+        "transactionAmount": "$100.00",
+        "entryDirection": "debit",
+        "statusDescription": "ATM cash withdrawal on 03/10",
+        "originDate": "03/10/2026",
+        "processingState": "completed",
+        "activityClassifier": "atm",
+        "displayCategory": "ATM_WITHDRAWAL",
+        "authorizedAmount": "100.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie",
+          "accountLabel": "My Savings Accnt - 1234",
+          "offeringVariant": "SAVINGS"
+        },
+        "activityReference": "TXN-SAV-20260311-00029",
+        "primaryDescription": "Internal Transfer to Checking Ac",
+        "classificationCode": "10",
+        "settlementDate": "03/11/2026",
+        "transactionAmount": "$200.00",
+        "entryDirection": "debit",
+        "statusDescription": "M2M transfer processed on 03/11",
+        "originDate": "03/11/2026",
+        "processingState": "completed",
+        "activityClassifier": "transfer",
+        "displayCategory": "TRANSFER_INTERNAL",
+        "authorizedAmount": "200.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie",
+          "accountLabel": "My Savings Accnt - 1234",
+          "offeringVariant": "SAVINGS"
+        },
+        "activityReference": "TXN-SAV-20260315-00030",
+        "primaryDescription": "Interest Accrual - March",
+        "classificationCode": "12",
+        "settlementDate": "03/15/2026",
+        "transactionAmount": "$3.72",
+        "entryDirection": "credit",
+        "statusDescription": "Monthly interest credited on 03/15",
+        "originDate": "03/15/2026",
+        "processingState": "completed",
+        "activityClassifier": "interest",
+        "displayCategory": "INTEREST_CREDIT",
+        "authorizedAmount": "3.72"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie",
+          "accountLabel": "My Savings Accnt - 1234",
+          "offeringVariant": "SAVINGS"
+        },
+        "activityReference": "TXN-SAV-20260331-00031",
+        "primaryDescription": "Savings Account Monthly Fee",
+        "classificationCode": "30",
+        "settlementDate": "03/31/2026",
+        "transactionAmount": "$5.00",
+        "entryDirection": "debit",
+        "statusDescription": "Monthly service charge assessed",
+        "originDate": "03/31/2026",
+        "processingState": "completed",
+        "activityClassifier": "fee",
+        "displayCategory": "FEE_MONTHLY",
+        "authorizedAmount": "5.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "h3hrh43h3h2h2ho33iiidisiiifd9h8gig8su8FHH8GD7F5E7E6Fgug5cgnie",
+          "accountLabel": "My Savings Accnt - 1234",
+          "offeringVariant": "SAVINGS"
+        },
+        "activityReference": "TXN-SAV-20260331-00032",
+        "primaryDescription": "Savings Account Fee Waiver - Preferred Rewards",
+        "classificationCode": "30",
+        "settlementDate": "03/31/2026",
+        "transactionAmount": "$5.00",
+        "entryDirection": "credit",
+        "statusDescription": "Fee waiver applied per rewards tier",
+        "originDate": "03/31/2026",
+        "processingState": "completed",
+        "activityClassifier": "fee_reversal",
+        "displayCategory": "FEE_WAIVER",
+        "authorizedAmount": "5.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+          "accountLabel": "Cash Rewards Credit Card - 8222",
+          "offeringVariant": "CREDIT_CARD"
+        },
+        "activityReference": "TXN-CC-20260405-00033",
+        "primaryDescription": "Amazon.com Purchase",
+        "classificationCode": "53",
+        "settlementDate": "04/05/2026",
+        "transactionAmount": "$89.99",
+        "entryDirection": "debit",
+        "statusDescription": "Online purchase on 04/05",
+        "originDate": "04/05/2026",
+        "processingState": "completed",
+        "activityClassifier": "pos",
+        "displayCategory": "PURCHASE_ONLINE",
+        "authorizedAmount": "89.99"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+          "accountLabel": "Cash Rewards Credit Card - 8222",
+          "offeringVariant": "CREDIT_CARD"
+        },
+        "activityReference": "TXN-CC-20260403-00034",
+        "primaryDescription": "Shell Gas Station #4421",
+        "classificationCode": "53",
+        "settlementDate": "04/03/2026",
+        "transactionAmount": "$48.75",
+        "entryDirection": "debit",
+        "statusDescription": "Point of sale purchase on 04/03",
+        "originDate": "04/03/2026",
+        "processingState": "completed",
+        "activityClassifier": "pos",
+        "displayCategory": "PURCHASE_GAS",
+        "authorizedAmount": "48.75"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+          "accountLabel": "Cash Rewards Credit Card - 8222",
+          "offeringVariant": "CREDIT_CARD"
+        },
+        "activityReference": "TXN-CC-20260330-00035",
+        "primaryDescription": "Whole Foods Market #1087",
+        "classificationCode": "53",
+        "settlementDate": "03/30/2026",
+        "transactionAmount": "$134.56",
+        "entryDirection": "debit",
+        "statusDescription": "Point of sale purchase on 03/30",
+        "originDate": "03/30/2026",
+        "processingState": "completed",
+        "activityClassifier": "pos",
+        "displayCategory": "PURCHASE_GROCERY",
+        "authorizedAmount": "134.56"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+          "accountLabel": "Cash Rewards Credit Card - 8222",
+          "offeringVariant": "CREDIT_CARD"
+        },
+        "activityReference": "TXN-CC-20260401-00036",
+        "primaryDescription": "Credit Card Payment - AutoPay",
+        "classificationCode": "09",
+        "settlementDate": "04/01/2026",
+        "transactionAmount": "$1,500.00",
+        "entryDirection": "credit",
+        "statusDescription": "Autopay payment received on 04/01",
+        "originDate": "04/01/2026",
+        "processingState": "completed",
+        "activityClassifier": "payment",
+        "displayCategory": "PAYMENT_CREDIT_CARD",
+        "authorizedAmount": "1500.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+          "accountLabel": "Cash Rewards Credit Card - 8222",
+          "offeringVariant": "CREDIT_CARD"
+        },
+        "activityReference": "TXN-CC-20260328-00037",
+        "primaryDescription": "Chipotle Mexican Grill #2247",
+        "classificationCode": "53",
+        "settlementDate": "03/28/2026",
+        "transactionAmount": "$14.52",
+        "entryDirection": "debit",
+        "statusDescription": "Point of sale purchase on 03/28",
+        "originDate": "03/28/2026",
+        "processingState": "completed",
+        "activityClassifier": "pos",
+        "displayCategory": "PURCHASE_FOOD",
+        "authorizedAmount": "14.52"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+          "accountLabel": "Cash Rewards Credit Card - 8222",
+          "offeringVariant": "CREDIT_CARD"
+        },
+        "activityReference": "TXN-CC-20260320-00038",
+        "primaryDescription": "Delta Airlines - Flight Booking",
+        "classificationCode": "53",
+        "settlementDate": "03/20/2026",
+        "transactionAmount": "$387.00",
+        "entryDirection": "debit",
+        "statusDescription": "Online purchase on 03/20",
+        "originDate": "03/20/2026",
+        "processingState": "completed",
+        "activityClassifier": "pos",
+        "displayCategory": "PURCHASE_TRAVEL",
+        "authorizedAmount": "387.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+          "accountLabel": "Cash Rewards Credit Card - 8222",
+          "offeringVariant": "CREDIT_CARD"
+        },
+        "activityReference": "TXN-CC-20260331-00039",
+        "primaryDescription": "Cash Rewards Redemption - Statement Credit",
+        "classificationCode": "20",
+        "settlementDate": "03/31/2026",
+        "transactionAmount": "$25.00",
+        "entryDirection": "credit",
+        "statusDescription": "Rewards redeemed as statement credit",
+        "originDate": "03/31/2026",
+        "processingState": "completed",
+        "activityClassifier": "rewards",
+        "displayCategory": "REWARDS_REDEMPTION",
+        "authorizedAmount": "25.00"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+          "accountLabel": "Cash Rewards Credit Card - 8222",
+          "offeringVariant": "CREDIT_CARD"
+        },
+        "activityReference": "TXN-CC-20260331-00040",
+        "primaryDescription": "Interest Charge - Purchases",
+        "classificationCode": "31",
+        "settlementDate": "03/31/2026",
+        "transactionAmount": "$18.43",
+        "entryDirection": "debit",
+        "statusDescription": "Monthly interest charge on revolving balance",
+        "originDate": "03/31/2026",
+        "processingState": "completed",
+        "activityClassifier": "interest",
+        "displayCategory": "FEE_INTEREST",
+        "authorizedAmount": "18.43"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+          "accountLabel": "Cash Rewards Credit Card - 8222",
+          "offeringVariant": "CREDIT_CARD"
+        },
+        "activityReference": "TXN-CC-20260408-00041",
+        "primaryDescription": "Pending - Best Buy #543",
+        "classificationCode": "53",
+        "settlementDate": null,
+        "transactionAmount": "$249.99",
+        "entryDirection": "debit",
+        "statusDescription": "Authorization hold - pending settlement",
+        "originDate": "04/08/2026",
+        "processingState": "pending",
+        "activityClassifier": "pos",
+        "displayCategory": "PURCHASE_ELECTRONICS",
+        "authorizedAmount": "249.99"
+      },
+      {
+        "linkedAccount": {
+          "accountTempId": "q9w3e8t0u2i4o6a1s3d5f7g9h0j2k4l6m8n0p1r3v5x7z9",
+          "accountLabel": "Cash Rewards Credit Card - 8222",
+          "offeringVariant": "CREDIT_CARD"
+        },
+        "activityReference": "TXN-CC-20260315-00042",
+        "primaryDescription": "Return Credit - Nordstrom",
+        "classificationCode": "54",
+        "settlementDate": "03/15/2026",
+        "transactionAmount": "$67.50",
+        "entryDirection": "credit",
+        "statusDescription": "Merchant refund processed on 03/15",
+        "originDate": "03/13/2026",
+        "processingState": "completed",
+        "activityClassifier": "refund",
+        "displayCategory": "REFUND_MERCHANT",
+        "authorizedAmount": "67.50"
+      }
+    ]
+  }
+}

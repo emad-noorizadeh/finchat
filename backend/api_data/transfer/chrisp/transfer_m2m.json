@@ -1,0 +1,98 @@
+{
+  "transfer_m2m_details": {
+    "serviceDisruption": false,
+    "depositServiceDegraded": false,
+    "transferContext": {
+      "customerEligibility": {
+        "transfersEnabled": true,
+        "zelleTransfersEnabled": false,
+        "externalAccountEnabled": false
+      },
+      "flowIndicators": {
+        "baseFlowActive": true
+      },
+      "clientCategory": "CONSUMER"
+    },
+    "sourceAccounts": [
+      {
+        "accountLabel": "Chris Savings - 2468",
+        "accountTempId": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+        "entityType": "ACCOUNT",
+        "flagIndicators": { "wealthAccountFlag": false },
+        "availableBalance": "12,450.33",
+        "offeringVariant": "MA",
+        "commercialAccount": false
+      }
+    ],
+    "destinationAccounts": [
+      {
+        "accountLabel": "Chris Savings - 2468",
+        "accountTempId": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+        "entityType": "ACCOUNT",
+        "flagIndicators": { "wealthAccountFlag": false },
+        "availableBalance": "12,450.33",
+        "offeringVariant": "MA",
+        "commercialAccount": false
+      }
+    ]
+  },
+  "transfer_m2m_transferOptions": {
+    "options": {
+      "targetParticipants": [],
+      "chosenOriginAccount": {
+        "accountLabel": "Chris Savings - 2468",
+        "accountTempId": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+        "entityType": "ACCOUNT",
+        "flagIndicators": { "wealthAccountFlag": false },
+        "availableBalance": "12,450.33",
+        "offeringVariant": "MA",
+        "commercialAccount": false
+      },
+      "targetOptions": {
+        "eligibleForWDCdisclosure": false
+      },
+      "calendarDetails": {
+        "RECURRING": {
+          "startDate": "2026-03-03",
+          "currentDate": "2026-03-02",
+          "endDate": "2027-03-02",
+          "isWeekendEnabled": true
+        },
+        "ONE_TIME_SCHEDULED": {
+          "holidays": [
+            "2026-05-25", "2026-06-19", "2026-09-07", "2026-10-12",
+            "2026-11-11", "2026-11-26", "2026-12-25", "2027-01-01",
+            "2027-01-18", "2027-02-15", "2027-05-31", "2027-07-05",
+            "2027-09-06", "2027-10-11"
+          ],
+          "startDate": "2026-03-03",
+          "currentDate": "2026-03-02",
+          "endDate": "2027-03-02",
+          "isWeekendEnabled": false
+        }
+      },
+      "isScheduledOnly": false,
+      "selfNoteEligibility": true,
+      "compEligible": false,
+      "p2pNavigationEnabled": false,
+      "externalAccountEligibility": false
+    }
+  },
+  "transfer_m2m_validate": null,
+  "transfer_m2m_submit_request": null,
+  "transfer_m2m_submit_response": null,
+  "transfer_m2m_transfer_pair": {
+    "options": {
+      "targetParticipants": [],
+      "chosenOriginAccount": {
+        "accountLabel": "Chris Savings - 2468",
+        "accountTempId": "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6",
+        "entityType": "ACCOUNT",
+        "flagIndicators": { "wealthAccountFlag": false },
+        "availableBalance": "12,450.33",
+        "offeringVariant": "MA",
+        "commercialAccount": false
+      }
+    }
+  }
+}
