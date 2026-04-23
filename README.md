@@ -95,11 +95,14 @@ the production values.
 | `DEBUG` | `false` | Extra SQL/log verbosity when `true`. |
 | `OPENAI_BASE_URL` | *(empty → api.openai.com)* | Point at an OpenAI-compatible gateway / proxy — LiteLLM, Azure OpenAI endpoint, on-prem inference stack, etc. Leave blank for direct-to-OpenAI. |
 | `LLM_MODEL` | `gpt-5` | Primary Planner LLM. |
+| `SUB_AGENT_LLM_MODEL` | `gpt-4.1` | LLM used by sub-agent `parse_node(mode=llm)` and `llm_node` calls — structured extraction at lower temperature. |
 | `LLM_REASONING_EFFORT` | `low` | For gpt-5 / o-family models: `minimal` \| `low` \| `medium` \| `high`. Tradeoff: `low` is ~3–5× faster than `medium`. |
 | `LLM_IS_REASONING` | `auto` | `auto` (detect by model name), `true` (force reasoning handling), `false` (force non-reasoning). Set to `true` when your gateway prefixes the model name in a way the auto-detect regex misses (e.g., `my-proxy/gpt-5-2025-01-01`). |
 | `LLM_STARTUP_CHECK` | `true` | Ping LLM + embeddings at app boot. Logs `[startup_llm_check]` with OK/FAIL per variant + latency. Set `false` to skip if hot-reload dev is noisy. |
 | `EMBEDDING_MODEL` | `text-embedding-3-large` | Used for KB + memory embeddings. |
 | `OPENAI_EMBEDDINGS_TIKTOKEN_ENABLED` | `true` | Default `true` lets `OpenAIEmbeddings` pre-count tokens locally via tiktoken (downloads BPE files from `openaipublic.blob.core.windows.net` once, caches in `~/.cache/tiktoken/`). Set `false` if your server can't reach Azure blob storage — the API will tokenize server-side. Symptom of needing this: `Failed to resolve 'openaipublic.blob.core.windows.net'`. |
+| `MAX_AGENT_ITERATIONS` | `15` | Hard cap on Planner ↔ tool_execute loop iterations per turn. Safety valve against runaway tool-calling; only fires on bugs (the soft two-phase cap in `nodes.py` catches the common case). |
+| `PLANNER_PROMPT_REVISION` | `v2026-04-22-compound-prose-default` | Tagged into every `[turn_summary.v1]` line so rollback analysis can compare turn-shape distributions across prompt versions. Bump when you change the response-strategy section of `enrichment.py`. |
 | `CORS_ORIGINS` | `["http://localhost:6001"]` | JSON array. Add more origins if you serve the frontend elsewhere. |
 
 ### LangSmith observability (optional)
