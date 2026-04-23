@@ -50,12 +50,36 @@ def load_rows() -> list[dict]:
 
 async def score_row(llm, system_content: str, row: dict) -> dict:
     """Invoke the Planner once on the row's query. Compare turn-1 tool_calls
-    against the row's expected set. Return a scored dict."""
+    against the row's expected set. Return a scored dict.
+
+    Retries on HTTP 429 (token-per-minute rate limit) with the wait time
+    parsed from the error message — OpenAI returns "try again in Ns" in
+    the body. Keeps the eval running through TPM caps without manual
+    nursing.
+    """
+    import asyncio
+    import re as _re
     messages = [
         SystemMessage(content=system_content),
         HumanMessage(content=row["query"]),
     ]
-    resp = await llm.ainvoke(messages)
+    attempts = 0
+    while True:
+        attempts += 1
+        try:
+            resp = await llm.ainvoke(messages)
+            break
+        except Exception as e:  # noqa: BLE001
+            msg = str(e)
+            if "rate_limit" not in msg.lower() and "429" not in msg:
+                raise
+            if attempts > 5:
+                raise
+            # Parse "try again in Ns" — OpenAI sends the wait. Cap at 60s.
+            m = _re.search(r"try again in ([\d.]+)s", msg)
+            wait = min(60.0, float(m.group(1)) + 1.0 if m else 10.0)
+            print(f"           [rate_limit] sleeping {wait:.1f}s (attempt {attempts})")
+            await asyncio.sleep(wait)
     emitted_tools = sorted(tc["name"] for tc in (resp.tool_calls or []))
     content_len = len(resp.content) if isinstance(resp.content, str) else 0
 
@@ -120,19 +144,49 @@ async def main() -> int:
     from app.services.memory import MemoryService
     from app.database import get_session_context, get_chroma_client
 
+    # init_tools triggers per-module register_tool() calls. Without it, the
+    # tool registry is empty and bind_tools binds nothing — the LLM has no
+    # tools to call and the eval is meaningless.
+    from app.tools import init_tools
+    init_tools()
+
     reset_llm()
-    llm = get_llm()
+    # Build the eval LLM with temperature=0 so prompt-tuning effects
+    # aren't drowned in model stochasticity. Production runs at the
+    # variant default (0.7 for primary) but for measuring prompt
+    # ROUTING decisions we want a deterministic harness.
+    from langchain_openai import ChatOpenAI
+    from app.config import settings
+    eval_kwargs = {
+        "model": settings.llm_model,
+        "api_key": settings.openai_api_key,
+        "temperature": 0,
+        "max_tokens": 4096,
+    }
+    if settings.openai_base_url:
+        eval_kwargs["base_url"] = settings.openai_base_url
+    llm = ChatOpenAI(**eval_kwargs)
+
     tools = get_always_load_tools("chat")
     schemas = [await t.to_openai_schema() for t in tools]
     llm = llm.bind_tools(schemas)
 
-    # Build a representative system prompt. The harness uses a synthetic
-    # user (no real profile fetch) because the routing behavior should be
-    # prompt-driven, not profile-dependent.
+    # Use a real seeded profile (aryash) so the Planner sees actual data
+    # to query — when profile is "not loaded", the Planner shortcuts to
+    # generic prose and our routing decisions become unmeasurable.
+    eval_user = os.environ.get("EVAL_USER", "aryash")
+    from app.services import profile_service
+    from app.services.transaction_service import load_transactions
+    if not profile_service.is_loaded(eval_user):
+        profile_service.load_profile(eval_user)
+        prefix = profile_service.get_file_prefix(eval_user)
+        if prefix:
+            load_transactions(eval_user, prefix)
+
     with get_session_context() as db:
         memory = MemoryService(db, get_chroma_client())
         enrichment = EnrichmentService(memory)
-        system_content = enrichment.build_system_prompt("_eval_user", "_eval_session")
+        system_content = enrichment.build_system_prompt(eval_user, "_eval_session")
 
     rows = load_rows()
     print(f"Running {len(rows)} eval rows against Planner...\n")
