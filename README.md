@@ -116,6 +116,24 @@ for the full story.
 | `LANGSMITH_HIDE_INPUTS` | `false` | Redact trace inputs (recommended for prod with PII). |
 | `LANGSMITH_HIDE_OUTPUTS` | `false` | Redact trace outputs. |
 
+### Logging
+
+These four knobs are read directly via `os.getenv` (the logging system
+has to bootstrap before pydantic Settings loads), so they live in `.env`
+but stay separate from the pydantic-managed block above.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `LOG_LEVEL` | `INFO` | Threshold for the root logger and `app.*` loggers. Set `DEBUG` to surface every internal log line — router decisions, tool execution, hop-guard triggers, turn summaries are already at INFO; DEBUG adds tracing and fine-grained internal state. |
+| `LOG_FORMAT` | human | Set to `json` for one-JSON-object-per-line (good for shipping to Datadog / ELK / etc.). |
+| `LOG_DIR` | unset → stdout only | When set, also writes rotating files to `<dir>/info.log` and `<dir>/error.log` (10 MB × 5 backups each). Stdout always stays on. |
+| `SERVICE_NAME` | `finchat` | Tag stamped on JSON log entries (only relevant when `LOG_FORMAT=json`). |
+
+Notable: `DEBUG` (in the pydantic block above) is unrelated — it only
+turns on SQLAlchemy query echo, not Python log verbosity. To see SQL
+*and* verbose app logs simultaneously, set both `DEBUG=true` and
+`LOG_LEVEL=DEBUG`.
+
 ### Frontend-side overrides
 
 `frontend/.env` (or `.env.local`):
