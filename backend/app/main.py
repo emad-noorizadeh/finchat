@@ -29,6 +29,15 @@ async def lifespan(app: FastAPI):
     from app.observability import configure_langsmith
     configure_langsmith()
 
+    # LLM + embedding connectivity ping. Catches misconfigured API keys,
+    # gateway URLs, and model names before a user's first turn. Never
+    # crashes startup — logs clear remediation hints on failure. Toggle
+    # with LLM_STARTUP_CHECK=false in .env if boot speed matters more
+    # than early failure signal (e.g., hot-reload dev loop).
+    if settings.llm_startup_check:
+        from app.services.llm_service import startup_check
+        await startup_check()
+
     create_db_and_tables()
 
     # Initialize tool registry

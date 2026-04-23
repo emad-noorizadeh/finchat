@@ -1,3 +1,4 @@
+import logging
 import re
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -79,7 +80,14 @@ def get_llm(variant: str = "primary") -> BaseChatModel:
         # default (api.openai.com).
         if settings.openai_base_url:
             kwargs["base_url"] = settings.openai_base_url
-        is_reasoning = cfg.get("is_reasoning") or _is_reasoning_model(model_name)
+        # Three-way override: env LLM_IS_REASONING → variant flag → name regex.
+        override = (getattr(settings, "llm_is_reasoning", "auto") or "").strip().lower()
+        if override == "true":
+            is_reasoning = True
+        elif override == "false":
+            is_reasoning = False
+        else:  # "auto" or any unknown value
+            is_reasoning = bool(cfg.get("is_reasoning") or _is_reasoning_model(model_name))
         if is_reasoning:
             # Reasoning models only accept temperature=1 (their default).
             # Omit it so langchain-openai doesn't send it on the request.
@@ -127,6 +135,74 @@ def get_embeddings() -> Embeddings:
             ekwargs["base_url"] = settings.openai_base_url
         _embeddings = OpenAIEmbeddings(**ekwargs)
     return _embeddings
+
+
+async def startup_check() -> dict:
+    """Sanity-ping every LLM variant + the embeddings model so misconfigured
+    API keys / gateway URLs fail LOUDLY at boot instead of on the first user
+    turn. Results are logged under [startup_llm_check]; the app never crashes
+    on failure — operators see the error in logs and fix it.
+
+    Returns a dict summarising status for anyone who wants to surface it
+    (e.g., a `/health` endpoint).
+    """
+    import asyncio
+    import time
+    from langchain_core.messages import HumanMessage
+    logger = logging.getLogger(__name__)
+    report: dict = {"variants": {}, "embedding": {}}
+
+    # --- LLM variants ---
+    for variant in _LLM_VARIANTS.keys():
+        t0 = time.perf_counter()
+        try:
+            llm = get_llm(variant)
+            resp = await asyncio.wait_for(
+                llm.ainvoke([HumanMessage(content="ping")]),
+                timeout=30.0,
+            )
+            content_len = len(resp.content) if isinstance(resp.content, str) else 0
+            dt_ms = (time.perf_counter() - t0) * 1000
+            report["variants"][variant] = {"ok": True, "duration_ms": round(dt_ms), "content_len": content_len}
+            logger.info(
+                "[startup_llm_check] variant=%s status=OK duration_ms=%.0f content_len=%d",
+                variant, dt_ms, content_len,
+            )
+        except Exception as e:  # noqa: BLE001
+            dt_ms = (time.perf_counter() - t0) * 1000
+            report["variants"][variant] = {"ok": False, "duration_ms": round(dt_ms), "error": str(e)}
+            logger.error(
+                "[startup_llm_check] variant=%s status=FAIL duration_ms=%.0f error=%s "
+                "(check OPENAI_API_KEY / OPENAI_BASE_URL / model name)",
+                variant, dt_ms, e,
+            )
+
+    # --- Embeddings ---
+    t0 = time.perf_counter()
+    try:
+        emb = get_embeddings()
+        # OpenAIEmbeddings only exposes sync `embed_query`; run it off-thread
+        # to avoid blocking the event loop during startup.
+        vec = await asyncio.wait_for(
+            asyncio.to_thread(emb.embed_query, "ping"),
+            timeout=30.0,
+        )
+        dt_ms = (time.perf_counter() - t0) * 1000
+        report["embedding"] = {"ok": True, "duration_ms": round(dt_ms), "dim": len(vec) if vec else 0}
+        logger.info(
+            "[startup_llm_check] embedding=%s status=OK duration_ms=%.0f dim=%d",
+            settings.embedding_model, dt_ms, len(vec) if vec else 0,
+        )
+    except Exception as e:  # noqa: BLE001
+        dt_ms = (time.perf_counter() - t0) * 1000
+        report["embedding"] = {"ok": False, "duration_ms": round(dt_ms), "error": str(e)}
+        logger.error(
+            "[startup_llm_check] embedding=%s status=FAIL duration_ms=%.0f error=%s "
+            "(check OPENAI_API_KEY / OPENAI_BASE_URL / EMBEDDING_MODEL)",
+            settings.embedding_model, dt_ms, e,
+        )
+
+    return report
 
 
 def reset():

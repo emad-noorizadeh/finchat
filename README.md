@@ -96,6 +96,8 @@ the production values.
 | `OPENAI_BASE_URL` | *(empty → api.openai.com)* | Point at an OpenAI-compatible gateway / proxy — LiteLLM, Azure OpenAI endpoint, on-prem inference stack, etc. Leave blank for direct-to-OpenAI. |
 | `LLM_MODEL` | `gpt-5` | Primary Planner LLM. |
 | `LLM_REASONING_EFFORT` | `low` | For gpt-5 / o-family models: `minimal` \| `low` \| `medium` \| `high`. Tradeoff: `low` is ~3–5× faster than `medium`. |
+| `LLM_IS_REASONING` | `auto` | `auto` (detect by model name), `true` (force reasoning handling), `false` (force non-reasoning). Set to `true` when your gateway prefixes the model name in a way the auto-detect regex misses (e.g., `my-proxy/gpt-5-2025-01-01`). |
+| `LLM_STARTUP_CHECK` | `true` | Ping LLM + embeddings at app boot. Logs `[startup_llm_check]` with OK/FAIL per variant + latency. Set `false` to skip if hot-reload dev is noisy. |
 | `EMBEDDING_MODEL` | `text-embedding-3-large` | Used for KB + memory embeddings. |
 | `CORS_ORIGINS` | `["http://localhost:6001"]` | JSON array. Add more origins if you serve the frontend elsewhere. |
 

@@ -36,6 +36,24 @@ class Settings(BaseSettings):
     # and costs ~5× the latency.
     llm_reasoning_effort: str = "low"
 
+    # Reasoning-model detection override.
+    #   "auto" (default) — match model name against the regex in
+    #                      llm_service._REASONING_MODEL_PATTERN.
+    #   "true"           — force reasoning handling (omit temperature,
+    #                      send reasoning_effort). Use when the name regex
+    #                      misses a vendor-prefixed name (e.g., a gateway
+    #                      that exposes "my-proxy/gpt-5-2025-01-01").
+    #   "false"          — force non-reasoning handling. Use when a name
+    #                      matches the regex but the underlying model is
+    #                      actually a standard chat model.
+    llm_is_reasoning: str = "auto"
+
+    # Run a one-shot LLM + embedding ping at app startup to catch
+    # misconfigured keys / gateway URLs early. Logs result to [startup_llm_check].
+    # Adds ~0.5–3s to every boot (one small completion + one embedding);
+    # disable in hot-reload dev if it gets annoying.
+    llm_startup_check: bool = True
+
     # Planner prompt revision. Tagged into [turn_summary.v1] so rollback
     # analysis can compare shape distributions across revisions. Changing
     # this value is the rollback mechanism — flip via env var to revert
