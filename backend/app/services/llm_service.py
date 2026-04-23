@@ -74,6 +74,11 @@ def get_llm(variant: str = "primary") -> BaseChatModel:
             "api_key": settings.openai_api_key,
             "max_tokens": cfg["max_tokens"],
         }
+        # Optional OpenAI-compatible gateway — only pass base_url when the
+        # operator explicitly set it; otherwise langchain-openai picks the
+        # default (api.openai.com).
+        if settings.openai_base_url:
+            kwargs["base_url"] = settings.openai_base_url
         is_reasoning = cfg.get("is_reasoning") or _is_reasoning_model(model_name)
         if is_reasoning:
             # Reasoning models only accept temperature=1 (their default).
@@ -113,10 +118,14 @@ def get_embeddings() -> Embeddings:
     """
     global _embeddings
     if _embeddings is None:
-        _embeddings = OpenAIEmbeddings(
-            model=settings.embedding_model,
-            api_key=settings.openai_api_key,
-        )
+        ekwargs = {
+            "model": settings.embedding_model,
+            "api_key": settings.openai_api_key,
+        }
+        # Same optional gateway as ChatOpenAI — only injected when set.
+        if settings.openai_base_url:
+            ekwargs["base_url"] = settings.openai_base_url
+        _embeddings = OpenAIEmbeddings(**ekwargs)
     return _embeddings
 
 

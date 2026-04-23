@@ -20,6 +20,11 @@ class Settings(BaseSettings):
 
     # LLM
     openai_api_key: str = ""
+    # Optional — point at an OpenAI-compatible gateway / proxy (e.g. a
+    # company-hosted LiteLLM, Azure OpenAI, or on-prem inference stack).
+    # Leave blank to hit api.openai.com directly. When non-empty it's
+    # passed as `base_url` to ChatOpenAI and OpenAIEmbeddings.
+    openai_base_url: str = ""
     llm_model: str = "gpt-5"
     sub_agent_llm_model: str = "gpt-4.1"  # Used by the "sub_agent" profile
     embedding_model: str = "text-embedding-3-large"

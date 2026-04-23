@@ -93,6 +93,7 @@ the production values.
 |---|---|---|
 | `APP_NAME` | `AI Agent Chat Platform` | Label shown in logs. |
 | `DEBUG` | `false` | Extra SQL/log verbosity when `true`. |
+| `OPENAI_BASE_URL` | *(empty → api.openai.com)* | Point at an OpenAI-compatible gateway / proxy — LiteLLM, Azure OpenAI endpoint, on-prem inference stack, etc. Leave blank for direct-to-OpenAI. |
 | `LLM_MODEL` | `gpt-5` | Primary Planner LLM. |
 | `LLM_REASONING_EFFORT` | `low` | For gpt-5 / o-family models: `minimal` \| `low` \| `medium` \| `high`. Tradeoff: `low` is ~3–5× faster than `medium`. |
 | `EMBEDDING_MODEL` | `text-embedding-3-large` | Used for KB + memory embeddings. |
