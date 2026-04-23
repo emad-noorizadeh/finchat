@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     # Leave blank to hit api.openai.com directly. When non-empty it's
     # passed as `base_url` to ChatOpenAI and OpenAIEmbeddings.
     openai_base_url: str = ""
+
+    # OpenAIEmbeddings, by default, fetches tiktoken's BPE merge files from
+    # `openaipublic.blob.core.windows.net` to count tokens client-side
+    # before each request. On airgapped / corp-firewall networks where the
+    # server can reach the LLM gateway but NOT Azure blob storage, that
+    # download fails and embedding calls error out. Set this to false in
+    # those environments — the API will tokenize server-side instead.
+    openai_embeddings_tiktoken_enabled: bool = True
     llm_model: str = "gpt-5"
     sub_agent_llm_model: str = "gpt-4.1"  # Used by the "sub_agent" profile
     embedding_model: str = "text-embedding-3-large"

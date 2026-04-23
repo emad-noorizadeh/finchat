@@ -133,7 +133,19 @@ def get_embeddings() -> Embeddings:
         # Same optional gateway as ChatOpenAI — only injected when set.
         if settings.openai_base_url:
             ekwargs["base_url"] = settings.openai_base_url
+        # On airgapped / corp-firewall networks, tiktoken can't reach
+        # openaipublic.blob.core.windows.net to fetch its BPE merge file.
+        # Disabling client-side tokenization makes the API count tokens
+        # server-side instead. See settings.openai_embeddings_tiktoken_enabled.
+        if not settings.openai_embeddings_tiktoken_enabled:
+            ekwargs["tiktoken_enabled"] = False
         _embeddings = OpenAIEmbeddings(**ekwargs)
+        logging.getLogger(__name__).info(
+            "[embeddings_built] model=%s tiktoken_enabled=%s base_url=%s",
+            settings.embedding_model,
+            settings.openai_embeddings_tiktoken_enabled,
+            settings.openai_base_url or "default",
+        )
     return _embeddings
 
 

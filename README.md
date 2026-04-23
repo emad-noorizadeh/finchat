@@ -99,6 +99,7 @@ the production values.
 | `LLM_IS_REASONING` | `auto` | `auto` (detect by model name), `true` (force reasoning handling), `false` (force non-reasoning). Set to `true` when your gateway prefixes the model name in a way the auto-detect regex misses (e.g., `my-proxy/gpt-5-2025-01-01`). |
 | `LLM_STARTUP_CHECK` | `true` | Ping LLM + embeddings at app boot. Logs `[startup_llm_check]` with OK/FAIL per variant + latency. Set `false` to skip if hot-reload dev is noisy. |
 | `EMBEDDING_MODEL` | `text-embedding-3-large` | Used for KB + memory embeddings. |
+| `OPENAI_EMBEDDINGS_TIKTOKEN_ENABLED` | `true` | Default `true` lets `OpenAIEmbeddings` pre-count tokens locally via tiktoken (downloads BPE files from `openaipublic.blob.core.windows.net` once, caches in `~/.cache/tiktoken/`). Set `false` if your server can't reach Azure blob storage — the API will tokenize server-side. Symptom of needing this: `Failed to resolve 'openaipublic.blob.core.windows.net'`. |
 | `CORS_ORIGINS` | `["http://localhost:6001"]` | JSON array. Add more origins if you serve the frontend elsewhere. |
 
 ### LangSmith observability (optional)
