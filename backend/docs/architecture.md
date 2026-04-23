@@ -743,6 +743,30 @@ The only telemetry backend this service emits to is **LangSmith**. OpenTelemetry
 
 `configure_langsmith()` sets both the canonical `LANGSMITH_*` names and the legacy `LANGCHAIN_*` aliases so any LangChain code path picks them up. It logs one line on boot: `[langsmith_configured] project=finchat endpoint=<url>` or `[langsmith_disabled] reason=<why>` — no secret is ever logged.
 
+### Per-component INFO logs (latency diagnosis)
+
+These fire during every turn and let you see where wall-clock time goes
+without attaching a debugger. All at INFO level — tail `LOG_DIR/info.log`
+or the stdout stream.
+
+| Log line | Emitted at | What it tells you |
+|---|---|---|
+| `[node_entry] name=<node> ...` | Top of each graph node (`enrich`, `planner_llm`, `tool_execute`, `presenter`, `hop_guard_fallback`) | Visible trace of which nodes fired in what order — spot unexpected loops or skipped nodes. |
+| `[llm_call.v1]` | After every Planner LLM `ainvoke` | `duration_ms` (wall clock), `input_tokens`, `output_tokens`, `cached_tokens` (from OpenAI's automatic prompt cache), `model`, `fingerprint`. Use `cached_tokens > 0` to confirm prompt cache is working on your gateway — if it's always 0, the gateway is stripping cache headers. |
+| `[tool_call.v1] name=<tool> duration_ms=N internal=bool error=bool output_len=N` | Per individual tool inside `tool_execute` | Isolates which tool in a parallel batch is slow. `internal=True` = orchestration plumbing (tool_search, present_widget); filter for `internal=False` to see only user-visible tool work. |
+| `[tool_execute.v1]` | After the whole tool batch | Batch-level duration + terminated flag. Already existed; used to cross-check per-tool times. |
+| `[embedding_call.v1] mode=query\|documents duration_ms=N dim=N` | Every `embed_query` / `embed_documents` call | Separates embedding-API latency from retrieval. Knowledge-search turns hit this. Slow here usually means your embedding endpoint (different gateway path from chat) is cold or under-provisioned. |
+| `[ttft] duration_ms=N first_event=<kind>` | SSE layer, on the FIRST user-visible event of each turn | **Time-to-first-token/widget.** Separates "model thinking + tools" from "network buffering between tokens". High TTFT + low total-chunk-duration = gateway buffering. |
+| `[kb_retrieval] query=... top_score=N results=N` | Inside `RAGService.build_knowledge_context_with_sources` | Chroma retrieval performance. |
+| `[presenter_choice] rule=... widget=... duration_ms=N` | When the Presenter runs | Presenter rules-engine time (always sub-10ms). |
+| `[hop_guard_triggered] iteration=N intended_tools=[...] content_len=N` | Two-phase cap hit | Distinguishes stall (content_len=0) from narrate-and-loop (content_len>0). |
+
+**Quick diagnostic grep:**
+```
+# Latency breakdown for a single turn
+grep 'turn=<id>' info.log | grep -E '\[node_entry|\[llm_call|\[tool_call|\[ttft|\[turn_summary'
+```
+
 ### Per-turn summary (`[turn_summary.v1]`)
 
 One aggregated log line per user turn, emitted by `emit_turn_summary()`

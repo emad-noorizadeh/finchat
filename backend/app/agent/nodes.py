@@ -187,6 +187,7 @@ async def enrich(state: AgentState) -> dict:
     _enrich_start = time.perf_counter()
     channel = state.get("channel", "chat")
     user_id = state.get("user_id", "")
+    logger.info("[node_entry] name=enrich channel=%s", channel)
 
     # Rehydrate in-memory profile/transaction caches after a process restart.
     # The UI keeps its auth token in localStorage, so the user stays logged in
@@ -276,6 +277,12 @@ async def llm_call(state: AgentState) -> dict:
     """Call the LLM via llm_service. Injects workflow_instructions from bound tools."""
     from app.services.llm_service import get_llm
 
+    logger.info(
+        "[node_entry] name=planner_llm iteration=%d bound_tools=%d",
+        state.get("iteration_count", 0) + 1,
+        len(state.get("tool_schemas", []) or []),
+    )
+
     llm = get_llm()
 
     # Build system message with dynamic workflow instructions
@@ -324,9 +331,24 @@ async def llm_call(state: AgentState) -> dict:
     iteration = state["iteration_count"] + 1
     tc_names = [tc["name"] for tc in (response.tool_calls or [])]
     content_len = len(response.content) if isinstance(response.content, str) else 0
+
+    # Token accounting — LangChain exposes OpenAI's usage via usage_metadata.
+    # cache_read tells us whether OpenAI's automatic prompt cache fired
+    # (critical for latency diagnosis on gateways that might strip cache
+    # headers). response_metadata carries model + system_fingerprint so we
+    # can see which backend actually served the call.
+    usage = getattr(response, "usage_metadata", None) or {}
+    input_tokens = usage.get("input_tokens", 0) or 0
+    output_tokens = usage.get("output_tokens", 0) or 0
+    cache_read = ((usage.get("input_token_details") or {}).get("cache_read", 0)) or 0
+    rmeta = getattr(response, "response_metadata", None) or {}
+    model_name = rmeta.get("model_name") or rmeta.get("model") or "?"
+    sys_fp = rmeta.get("system_fingerprint") or "-"
     logger.info(
-        "[llm_call.v1] iteration=%d duration_ms=%.0f tool_calls=%s content_len=%d",
+        "[llm_call.v1] iteration=%d duration_ms=%.0f tool_calls=%s content_len=%d "
+        "input_tokens=%d output_tokens=%d cached_tokens=%d model=%s fingerprint=%s",
         iteration, _llm_ms, tc_names, content_len,
+        input_tokens, output_tokens, cache_read, model_name, sys_fp,
     )
     _m = current_turn_metrics()
     if _m is not None:
@@ -351,6 +373,10 @@ async def tool_execute(state: AgentState) -> dict:
     last_message = state["messages"][-1]
     if not hasattr(last_message, "tool_calls") or not last_message.tool_calls:
         return {}
+    logger.info(
+        "[node_entry] name=tool_execute tools=%s",
+        [tc["name"] for tc in last_message.tool_calls],
+    )
 
     new_available = list(state.get("available_tools", []))
     new_schemas = list(state.get("tool_schemas", []))
@@ -378,6 +404,7 @@ async def tool_execute(state: AgentState) -> dict:
         """Execute a single tool call, return (ToolMessage, tool_name, raw_result, slot_data)."""
         nonlocal terminated, go_to_presenter
         slot_data = None
+        _tc_start = time.perf_counter()
         # User-visible activity event — emitted for every NON-internal tool so
         # the chat UI can render a per-tool spinner with a friendly label.
         # Skip is_internal tools (present_widget, tool_search) — they're
@@ -475,6 +502,19 @@ async def tool_execute(state: AgentState) -> dict:
                 "[tool_result_size] %s returned %d chars (~%d tokens) to LLM",
                 tc["name"], len(llm_text), len(llm_text) // 4,
             )
+
+        # Per-tool duration log — separate from the [tool_execute.v1] batch
+        # line so you can see which individual tool is slow (e.g., a KB query
+        # vs a profile lookup in a parallel gather). Also flags `is_internal`
+        # tools separately so they're visible in logs but easy to filter out.
+        _tc_ms = (time.perf_counter() - _tc_start) * 1000
+        _is_err = bool(llm_text and "error" in llm_text[:60].lower())
+        logger.info(
+            "[tool_call.v1] name=%s duration_ms=%.0f internal=%s error=%s output_len=%d",
+            tc["name"], _tc_ms,
+            bool(tool and getattr(tool, "is_internal", False)),
+            _is_err, len(llm_text or ""),
+        )
 
         if show_activity:
             try:
@@ -717,7 +757,14 @@ def post_tool_router(state: AgentState) -> str:
 # --- Hop guard fallback node ---
 
 
-async def hop_guard_fallback(state: AgentState) -> dict:
+async def hop_guard_fallback(state: AgentState) -> dict:  # noqa: D401
+    """Force-terminate the turn with a generic text_card widget when the
+    two-phase cap is hit."""
+    logger.info("[node_entry] name=hop_guard_fallback")
+    return await _hop_guard_fallback_impl(state)
+
+
+async def _hop_guard_fallback_impl(state: AgentState) -> dict:
     """Force-terminate the turn with a generic text_card widget when the
     two-phase cap is hit. Dispatches the widget via the same SSE channel as
     Presenter-emitted widgets, sets response_terminated=True, and ends.

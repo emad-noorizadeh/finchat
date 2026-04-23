@@ -149,16 +149,32 @@ class _ServerTokenizedOpenAIEmbeddings(Embeddings):
         self._batch_size = 100
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        import time as _t
         out: list[list[float]] = []
+        _start = _t.perf_counter()
+        batches = 0
         for i in range(0, len(texts), self._batch_size):
             batch = texts[i : i + self._batch_size]
             resp = self._client.embeddings.create(model=self._model, input=batch)
             out.extend([d.embedding for d in resp.data])
+            batches += 1
+        logging.getLogger(__name__).info(
+            "[embedding_call.v1] mode=documents count=%d batches=%d duration_ms=%.0f dim=%d",
+            len(texts), batches, (_t.perf_counter() - _start) * 1000,
+            len(out[0]) if out else 0,
+        )
         return out
 
     def embed_query(self, text: str) -> list[float]:
+        import time as _t
+        _start = _t.perf_counter()
         resp = self._client.embeddings.create(model=self._model, input=text)
-        return resp.data[0].embedding
+        vec = resp.data[0].embedding
+        logging.getLogger(__name__).info(
+            "[embedding_call.v1] mode=query duration_ms=%.0f dim=%d input_chars=%d",
+            (_t.perf_counter() - _start) * 1000, len(vec), len(text),
+        )
+        return vec
 
 
 def get_embeddings() -> Embeddings:

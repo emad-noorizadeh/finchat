@@ -328,6 +328,10 @@ async def presenter(state: AgentState) -> dict:
     from app.agent.nodes import current_turn_metrics
     _p_start = time.perf_counter()
     channel = state.get("channel", "chat")
+    logger.info(
+        "[node_entry] name=presenter channel=%s populated_slots=%s",
+        channel, sorted((state.get("variables") or {}).keys()),
+    )
 
     # Voice channel should not have reached here — present_widget is chat-only.
     # Defensive: suppress widget, return no-op.

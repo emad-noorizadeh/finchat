@@ -168,6 +168,25 @@ async def send_message(
         reset_turn_metrics()
         turn_exit_reason = "unknown"
 
+        # Time-to-first-visible-output — separates "model thinking" from
+        # "network buffering". Measured from request arrival to first
+        # user-visible event (response_chunk, widget, or final_response).
+        # Logged once per turn as [ttft] on first emission.
+        import time as _ttft_time
+        import logging as _ttft_log
+        _ttft_start = _ttft_time.perf_counter()
+        _ttft_fired = {"done": False}
+
+        def _log_ttft(event_kind: str):
+            if _ttft_fired["done"]:
+                return
+            _ttft_fired["done"] = True
+            _ttft_log.getLogger("app.routers.chat").info(
+                "[ttft] duration_ms=%.0f first_event=%s",
+                (_ttft_time.perf_counter() - _ttft_start) * 1000,
+                event_kind,
+            )
+
         try:
             async with get_checkpointer() as checkpointer:
                 compiled = build_agent_graph(checkpointer=checkpointer)
@@ -201,6 +220,7 @@ async def send_message(
                         if kind == "on_custom_event" and event.get("name") == "widget":
                             widget_data = event.get("data")
                             if widget_data:
+                                _log_ttft("widget")
                                 yield sse(widget_event(widget_data))
                                 instance_id = widget_data.get("instance_id", "")
                                 memory_svc = MemoryService(session, get_chroma_client())
@@ -216,6 +236,7 @@ async def send_message(
                             text = final_data.get("content", "")
                             if text:
                                 accumulated_content = text
+                                _log_ttft("final_response")
                                 yield sse(response_event(accumulated_content))
                                 final_emitted = True
                             continue
@@ -248,6 +269,7 @@ async def send_message(
                                 content = chunk.content
                                 if isinstance(content, str) and content:
                                     accumulated_content += content
+                                    _log_ttft("response_chunk")
                                     yield sse(response_chunk_event(content))
                                     from app.agent.nodes import current_turn_metrics
                                     _mm = current_turn_metrics()
@@ -283,6 +305,7 @@ async def send_message(
                         if kind == "on_custom_event" and event.get("name") == "widget":
                             widget_data = event.get("data")
                             if widget_data:
+                                _log_ttft("widget")
                                 yield sse(widget_event(widget_data))
                                 # Save message with instance_id as content (not full JSON)
                                 instance_id = widget_data.get("instance_id", "")
@@ -301,6 +324,7 @@ async def send_message(
                             text = final_data.get("content", "")
                             if text:
                                 accumulated_content = text
+                                _log_ttft("final_response")
                                 yield sse(response_event(accumulated_content))
                                 final_emitted = True
                             continue
@@ -336,6 +360,7 @@ async def send_message(
                                 content = chunk.content
                                 if isinstance(content, str) and content:
                                     accumulated_content += content
+                                    _log_ttft("response_chunk")
                                     yield sse(response_chunk_event(content))
                                     from app.agent.nodes import current_turn_metrics
                                     _mm = current_turn_metrics()
