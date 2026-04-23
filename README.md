@@ -85,7 +85,7 @@ the production values.
 
 | Variable | Description |
 |---|---|
-| `OPENAI_API_KEY` | OpenAI secret key. Used for both the LLM and embeddings. |
+| `OPENAI_API_KEY` | OpenAI secret key. Used for both the LLM and embeddings. **Still required when `OPENAI_BASE_URL` points at a gateway** — the OpenAI SDK validates this at construction. Use whatever auth token the gateway expects, or a placeholder like `sk-proxy` if the gateway ignores auth. |
 
 ### Core settings (defaults work out of the box)
 
