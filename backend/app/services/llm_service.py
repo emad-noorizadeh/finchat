@@ -117,6 +117,50 @@ def get_llm(variant: str = "primary") -> BaseChatModel:
     return _llm_cache[variant]
 
 
+class _ServerTokenizedOpenAIEmbeddings(Embeddings):
+    """Thin LangChain Embeddings adapter that calls the OpenAI SDK directly,
+    skipping all client-side tokenization.
+
+    Why this exists: langchain-openai's `OpenAIEmbeddings` insists on
+    pre-counting tokens client-side for batch sizing. With
+    `tiktoken_enabled=True` it downloads BPE files from
+    openaipublic.blob.core.windows.net (blocked on most corp networks).
+    With `tiktoken_enabled=False` it falls through to
+    `transformers.AutoTokenizer` (a 100MB+ optional dep).
+
+    Our indexing pipeline already chunks via character-based
+    `RecursiveCharacterTextSplitter`; every payload that reaches embed_*
+    is already well under the 8191-token API limit. So we don't need any
+    client-side tokenizer — let the API count server-side.
+
+    Used when `settings.openai_embeddings_tiktoken_enabled = False`.
+    Compatible with any OpenAI-compatible gateway (LiteLLM, Azure, etc.).
+    """
+
+    def __init__(self, model: str, api_key: str, base_url: str | None = None):
+        from openai import OpenAI
+        kwargs = {"api_key": api_key}
+        if base_url:
+            kwargs["base_url"] = base_url
+        self._client = OpenAI(**kwargs)
+        self._model = model
+        # Conservative batch size — OpenAI accepts up to 2048 inputs per
+        # request, but our typical use is single chunks or small batches.
+        self._batch_size = 100
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        out: list[list[float]] = []
+        for i in range(0, len(texts), self._batch_size):
+            batch = texts[i : i + self._batch_size]
+            resp = self._client.embeddings.create(model=self._model, input=batch)
+            out.extend([d.embedding for d in resp.data])
+        return out
+
+    def embed_query(self, text: str) -> list[float]:
+        resp = self._client.embeddings.create(model=self._model, input=text)
+        return resp.data[0].embedding
+
+
 def get_embeddings() -> Embeddings:
     """Get the singleton LangChain embeddings model.
 
@@ -125,27 +169,36 @@ def get_embeddings() -> Embeddings:
     by changing this single function.
     """
     global _embeddings
+    log = logging.getLogger(__name__)
     if _embeddings is None:
-        ekwargs = {
-            "model": settings.embedding_model,
-            "api_key": settings.openai_api_key,
-        }
-        # Same optional gateway as ChatOpenAI — only injected when set.
-        if settings.openai_base_url:
-            ekwargs["base_url"] = settings.openai_base_url
-        # On airgapped / corp-firewall networks, tiktoken can't reach
-        # openaipublic.blob.core.windows.net to fetch its BPE merge file.
-        # Disabling client-side tokenization makes the API count tokens
-        # server-side instead. See settings.openai_embeddings_tiktoken_enabled.
+        # On airgapped / corp-firewall networks, both tiktoken AND the
+        # transformers fallback inside langchain-openai's OpenAIEmbeddings
+        # require external resources. We side-step the whole stack and
+        # call the OpenAI SDK directly via _ServerTokenizedOpenAIEmbeddings.
         if not settings.openai_embeddings_tiktoken_enabled:
-            ekwargs["tiktoken_enabled"] = False
-        _embeddings = OpenAIEmbeddings(**ekwargs)
-        logging.getLogger(__name__).info(
-            "[embeddings_built] model=%s tiktoken_enabled=%s base_url=%s",
-            settings.embedding_model,
-            settings.openai_embeddings_tiktoken_enabled,
-            settings.openai_base_url or "default",
-        )
+            _embeddings = _ServerTokenizedOpenAIEmbeddings(
+                model=settings.embedding_model,
+                api_key=settings.openai_api_key,
+                base_url=settings.openai_base_url or None,
+            )
+            log.info(
+                "[embeddings_built] model=%s tokenization=server (raw OpenAI SDK adapter) base_url=%s",
+                settings.embedding_model,
+                settings.openai_base_url or "default",
+            )
+        else:
+            ekwargs = {
+                "model": settings.embedding_model,
+                "api_key": settings.openai_api_key,
+            }
+            if settings.openai_base_url:
+                ekwargs["base_url"] = settings.openai_base_url
+            _embeddings = OpenAIEmbeddings(**ekwargs)
+            log.info(
+                "[embeddings_built] model=%s tokenization=client (tiktoken) base_url=%s",
+                settings.embedding_model,
+                settings.openai_base_url or "default",
+            )
     return _embeddings
 
 
