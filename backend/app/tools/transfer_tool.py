@@ -86,13 +86,21 @@ class TransferAgentTool(BaseTool):
 
     async def description(self, context=None):
         return (
-            "Transfer money between the user's accounts. Multi-step flow: "
-            "collects amount, source account, destination account; confirms; "
-            "executes.\n\n"
-            "Examples:\n"
-            "- \"Transfer $200 to my savings\" → transfer_money(message=\"$200 to savings\")\n"
-            "- \"Send $500 to checking\" → transfer_money(message=\"$500 to checking\")\n\n"
-            "Do NOT pre-fill account details — the sub-agent collects them."
+            "Initiate a money transfer. Supports THREE transfer types — the "
+            "sub-agent picks the right one from the user's wording:\n"
+            "  • m2m   — between the user's OWN accounts (e.g. checking → savings)\n"
+            "  • zelle — to a person (friend, family) by name or contact\n"
+            "  • cc    — to pay an external credit-card account\n\n"
+            "Multi-step flow: detects type, collects amount + source + destination "
+            "(or payee for Zelle), confirms, executes. Pass the user's full request "
+            "verbatim as `message` — the sub-agent parses type, amount, and accounts.\n\n"
+            "When to call:\n"
+            "- Any phrase about moving money (\"transfer\", \"send\", \"move\", \"pay\")\n"
+            "- Any destination — the user's own account, another person, or an "
+            "  external credit card\n"
+            "- DO NOT decline person-to-person requests; route them — the sub-agent "
+            "  handles Zelle.\n\n"
+            "Do NOT pre-fill account or payee details — the sub-agent collects them."
         )
 
     async def input_schema(self):
