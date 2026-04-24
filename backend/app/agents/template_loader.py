@@ -195,7 +195,17 @@ def _validate_semantics(raw: dict) -> list[str]:
     for source_id, edges in edges_by_source.items():
         if len(edges) < 2:
             continue
-        guaranteed: set[tuple] = set()
+        # A condition_node is a fan-out: edges share the same dispatch
+        # state and any one of them may run first across re-entries to
+        # this node (load_X edges populate variables that later edges
+        # consume). So a `has(X)` appearing in *any* sibling edge is
+        # sufficient guarantee — not just earlier ones in array order.
+        group_guarantees: set[tuple] = set()
+        for edge in edges:
+            pred_src = edge.get("predicate")
+            if pred_src:
+                _record_has_guarantees(pred_src, group_guarantees)
+
         for idx, edge in enumerate(edges):
             pred_src = edge.get("predicate")
             if not pred_src:
@@ -204,20 +214,13 @@ def _validate_semantics(raw: dict) -> list[str]:
                 pred = compile_predicate(pred_src)
             except PredicateParseError:
                 continue
-            # Same-predicate has(...) calls guard the non-has-wrapped paths.
-            own_has: set[tuple] = set()
-            _record_has_guarantees(pred_src, own_has)
-
             for path in pred.referenced_paths:
-                if (_path_not_guaranteed(path, guaranteed)
-                    and _path_not_guaranteed(path, own_has)):
+                if _path_not_guaranteed(path, group_guarantees):
                     warnings.append(
                         f"edge #{idx} on {source_id}: predicate references "
-                        f"{'.'.join(path)} but no earlier edge guarantees "
-                        f"has({'.'.join(path)})"
+                        f"{'.'.join(path)} but no edge in this dispatch "
+                        f"group guarantees has({'.'.join(path)})"
                     )
-            # Accumulate has(...) guarantees into later-edge context.
-            guaranteed |= own_has
 
     return warnings
 

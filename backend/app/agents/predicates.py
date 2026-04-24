@@ -308,9 +308,21 @@ class CompiledPredicate:
 
 
 def _collect_paths(node: Any, *, include_has_args: bool = False) -> list[tuple[str, ...]]:
-    """Collect all path references. By default, paths inside `has(...)` or
-    `is_empty(...)` are EXCLUDED — those are guards, not accesses that need
-    prior guarantee.
+    """Collect path references that *require* a prior `has(...)` guarantee.
+
+    The runtime is None-safe: missing paths resolve to None, `None == X`
+    returns False, `None < X` returns False (per `_evaluate`). The validator
+    only flags references in contexts where the author probably *meant*
+    for the value to be present and the silent-False fallback would be a
+    bug. Skipped contexts:
+      - Paths inside `has(...)` / `is_empty(...)` — explicit guards.
+      - Paths on either side of `==` or `!=` — equality with None is
+        well-defined, so a missing path predictably evaluates to False
+        (intended for type-tag fan-outs like `variables.kind == 'X'`).
+
+    Arithmetic comparisons (<, <=, >, >=) and bare-path bool coercions
+    are still collected — those usually indicate an authored expectation
+    that the value exists.
     """
     paths: list[tuple[str, ...]] = []
     def walk(n):
@@ -321,6 +333,9 @@ def _collect_paths(node: Any, *, include_has_args: bool = False) -> list[tuple[s
                 paths.append(n.arg.parts)
             # else: skip the path inside has()/is_empty(); it's a guard
         elif isinstance(n, _Cmp):
+            if n.op in ("==", "!="):
+                # Equality with None is safe; don't require a guarantee.
+                return
             walk(n.left); walk(n.right)
         elif isinstance(n, _Bin):
             walk(n.left); walk(n.right)
