@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 
 class StreamEventType(str, Enum):
+    TURN_STARTED = "turn_started"   # first event on every SSE stream — carries turn_id
     THINKING = "thinking"
     TOOL_START = "tool_start"
     TOOL_COMPLETE = "tool_complete"
@@ -26,6 +27,17 @@ class StreamEvent(BaseModel):
 
 
 # --- Factory functions ---
+
+def turn_started_event(turn_id: str, session_id: str = "") -> StreamEvent:
+    """Very first event on every SSE stream. Carries the turn_id so
+    clients can capture it for bug reports, correlation with server logs,
+    and UI-level tracking. session_id included for convenience when the
+    client didn't retain it from the URL path."""
+    return StreamEvent(
+        type=StreamEventType.TURN_STARTED,
+        data={"turn_id": turn_id, "session_id": session_id},
+    )
+
 
 def thinking_event(content: str) -> StreamEvent:
     return StreamEvent(type=StreamEventType.THINKING, content=content)

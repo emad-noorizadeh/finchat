@@ -1,4 +1,5 @@
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -12,7 +13,7 @@ from app.services.widget_service import WidgetService
 from app.models.stream_events import (
     thinking_event, tool_start_event, tool_complete_event,
     response_chunk_event, response_event, interrupt_event,
-    error_event, done_event, widget_event,
+    error_event, done_event, widget_event, turn_started_event,
 )
 from app.schemas.chat import CreateSessionRequest, CreateSessionResponse
 from app.services.memory import MemoryService
@@ -130,6 +131,10 @@ async def send_message(
             session.add(chat)
             session.commit()
 
+    # Generated in outer scope so it can be returned as a response header
+    # AND passed into the event_stream closure as the turn-correlation ID.
+    turn_id = generate_request_id()
+
     async def event_stream():
         from langchain_core.messages import HumanMessage
         from langgraph.types import Command
@@ -152,7 +157,6 @@ async def send_message(
         accumulated_content = ""
         final_emitted = False
 
-        turn_id = generate_request_id()
         log_ctx = LogContextManager(
             session_id=session_id,
             user_id=req.user_id,
@@ -161,6 +165,20 @@ async def send_message(
             operation=f"chat:{req.type}",
         )
         log_ctx.__enter__()
+
+        # Turn boundary marker — explicit grep anchor for the start of
+        # every turn. Carries a short content hash + length so bug reports
+        # can be correlated to a specific turn without logging raw input
+        # (privacy). Pair with [turn_end] to bracket the full lifecycle.
+        import hashlib as _hash
+        _content_hash = (
+            _hash.sha1(req.content.encode("utf-8")).hexdigest()[:8]
+            if req.content else "-"
+        )
+        logging.getLogger("app.routers.chat").info(
+            "[turn_start] type=%s content_len=%d content_hash=%s",
+            req.type, len(req.content or ""), _content_hash,
+        )
 
         # Start per-turn metrics accumulator (llm_calls, tool_calls, iterations,
         # latencies). Nodes bump counters; we emit the summary at stream end.
@@ -186,6 +204,12 @@ async def send_message(
                 (_ttft_time.perf_counter() - _ttft_start) * 1000,
                 event_kind,
             )
+
+        # First SSE event on every stream — gives the client the turn_id so
+        # it can display / capture it for bug reports and echo it back in any
+        # follow-up resume call. Client-visible mirror of the server-side
+        # LogContext.turn_id.
+        yield sse(turn_started_event(turn_id=turn_id, session_id=session_id))
 
         try:
             async with get_checkpointer() as checkpointer:
@@ -414,6 +438,11 @@ async def send_message(
                 exit_reason=turn_exit_reason,
                 session_id=session_id, user_id=req.user_id, turn_id=turn_id,
             )
+            # Matching end-of-turn grep anchor. Pairs with [turn_start];
+            # between the two you see the complete lifecycle for one turn.
+            logging.getLogger("app.routers.chat").info(
+                "[turn_end] exit=%s", turn_exit_reason,
+            )
             log_ctx.__exit__(None, None, None)
 
     return StreamingResponse(
@@ -423,6 +452,11 @@ async def send_message(
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
+            # Client-readable correlation ID. Gives the frontend (or any
+            # proxy/tool) a way to display the turn_id in UI for bug
+            # reports, mirroring the first SSE event's payload.
+            "X-Turn-ID": turn_id,
+            "X-Session-ID": session_id,
         },
     )
 

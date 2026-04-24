@@ -743,6 +743,43 @@ The only telemetry backend this service emits to is **LangSmith**. OpenTelemetry
 
 `configure_langsmith()` sets both the canonical `LANGSMITH_*` names and the legacy `LANGCHAIN_*` aliases so any LangChain code path picks them up. It logs one line on boot: `[langsmith_configured] project=finchat endpoint=<url>` or `[langsmith_disabled] reason=<why>` — no secret is ever logged.
 
+### Request correlation — one `turn_id` per user turn
+
+Every chat turn is assigned a `turn_id` (UUID) at request entry and propagated
+everywhere:
+
+- **Response headers** — `X-Turn-ID` and `X-Session-ID` on the SSE
+  response. Clients can read these to display / report the turn_id.
+- **First SSE event** — `{type: "turn_started", data: {turn_id, session_id}}`
+  arrives before any other event. Clients that don't read headers can
+  capture the id from this event.
+- **Log context** — every log line emitted inside the turn is auto-prefixed
+  with `[session=<id> user=<id> turn=<id>]` in text format, or has those
+  fields at the JSON top level in structured format. Uses `ContextVar`
+  semantics so all coroutines (including sub-agent inner nodes) inherit it.
+- **Boundary markers** — `[turn_start]` + `[turn_end]` log lines bracket
+  the lifecycle for easy grep pairing. `[turn_start]` carries
+  `content_len` and an 8-char SHA-1 `content_hash` (NOT the content
+  itself — privacy) so user bug reports can map to specific turns.
+- **`[turn_summary.v1]`** — the existing aggregate line also includes
+  the full UUID in its message body.
+
+**Reconstructing a turn:** grep for the turn_id (from the user's bug
+report, the `X-Turn-ID` header, or server logs):
+
+```
+grep 'turn=<first-8-chars>' info.log
+```
+
+That gives you every line — `[turn_start]`, `[node_entry]`, `[llm_call.v1]`,
+`[tool_call.v1]`, `[ttft]`, `[presenter_choice]`, `[turn_summary.v1]`,
+`[turn_end]` — in chronological order.
+
+For non-chat HTTP requests (profile, widgets, files), the
+`LoggingMiddleware` assigns a `request_id` instead and sets the
+`X-Request-ID` response header. Same correlation mechanism, different
+field name.
+
 ### Per-component INFO logs (latency diagnosis)
 
 These fire during every turn and let you see where wall-clock time goes
