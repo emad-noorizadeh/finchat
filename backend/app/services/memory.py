@@ -14,10 +14,66 @@ class MemoryService:
     def __init__(self, db_session: Session, chroma_client=None):
         self.session = db_session
         self.chroma = chroma_client
+        self.collection = None
         if self.chroma:
+            self._init_collection()
+
+    def _init_collection(self) -> None:
+        """Get or create the long_term_memory collection with our gateway
+        embedding function. Self-heals an old collection that was created
+        with Chroma's default function (causes 40s HuggingFace hang on
+        airgapped networks) by auto-migrating IF the collection has zero
+        documents. With facts present, falls back loudly so the operator
+        knows a manual migration is needed.
+        """
+        from app.services.llm_service import get_chroma_embedding_function
+        chroma_ef = get_chroma_embedding_function()
+
+        try:
+            self.collection = self.chroma.get_or_create_collection(
+                "long_term_memory",
+                embedding_function=chroma_ef,
+            )
+            return
+        except Exception as e:  # noqa: BLE001
+            mismatch = "embedding function" in str(e).lower()
+            if not mismatch:
+                _log.warning("[memory_collection.create_failed] err=%s", e)
+                self.collection = None
+                return
+
+            # Embedding-function mismatch on an existing collection.
+            # Inspect it first — if it's empty, drop and recreate with our
+            # adapter (zero data loss). If it has documents, we can't safely
+            # auto-migrate; fall back to the stored function and warn loudly.
+            try:
+                existing = self.chroma.get_collection("long_term_memory")
+                doc_count = existing.count()
+            except Exception:
+                doc_count = -1  # treat as "unknown"
+
+            if doc_count == 0:
+                _log.info(
+                    "[memory_collection.auto_migrate] reason=embedding_fn_mismatch "
+                    "doc_count=0 (safe to drop and recreate)"
+                )
+                try:
+                    self.chroma.delete_collection("long_term_memory")
+                except Exception as drop_err:  # noqa: BLE001
+                    _log.warning("[memory_collection.drop_failed] err=%s", drop_err)
+                self.collection = self.chroma.get_or_create_collection(
+                    "long_term_memory",
+                    embedding_function=chroma_ef,
+                )
+                return
+
+            _log.warning(
+                "[memory_collection.embedding_fn_mismatch] doc_count=%d err=%s — "
+                "falling back to stored function (slow on airgap). To migrate, "
+                "stop backend and run: chroma_client.delete_collection('long_term_memory')",
+                doc_count, e,
+            )
             self.collection = self.chroma.get_or_create_collection("long_term_memory")
-        else:
-            self.collection = None
 
     def get_profile_context(self, user_id: str) -> dict:
         profile = self.session.get(Profile, user_id)

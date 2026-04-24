@@ -177,6 +177,49 @@ class _ServerTokenizedOpenAIEmbeddings(Embeddings):
         return vec
 
 
+class _ChromaEmbeddingAdapter:
+    """Chroma EmbeddingFunction-compatible wrapper around our app's Embeddings.
+
+    Chroma's `Collection.query(query_texts=[...])` invokes its
+    embedding_function on the query string before searching. By default
+    Chroma falls back to `SentenceTransformerEmbeddingFunction` which
+    fetches `all-MiniLM-L6-v2` from HuggingFace on first use — that
+    hangs on airgapped networks (~40s timeout chain) and is the wrong
+    model anyway (different embedding space than our KB indexing path).
+
+    Pass `get_chroma_embedding_function()` to every
+    `chroma.get_or_create_collection(...)` call so all of Chroma's
+    runtime embedding work routes through the same gateway path
+    everything else uses.
+
+    Conforms to chromadb's EmbeddingFunction protocol:
+      __call__(input: list[str]) -> list[list[float]]
+    """
+
+    def __init__(self, embeddings: Embeddings):
+        self._embeddings = embeddings
+
+    def __call__(self, input):  # noqa: A002 — chroma protocol uses `input`
+        # Empty list short-circuit so the gateway isn't called for a no-op.
+        texts = list(input or [])
+        if not texts:
+            return []
+        return self._embeddings.embed_documents(texts)
+
+    @staticmethod
+    def name() -> str:
+        # Chroma stores the embedding-function name in collection metadata
+        # for compatibility checks across reopens. Fixed string so an
+        # already-created collection keeps matching.
+        return "app_gateway_embeddings"
+
+
+def get_chroma_embedding_function() -> _ChromaEmbeddingAdapter:
+    """Singleton-like Chroma adapter backed by `get_embeddings()`. Cheap to
+    re-construct (just wraps a reference) so we don't bother caching."""
+    return _ChromaEmbeddingAdapter(get_embeddings())
+
+
 def get_embeddings() -> Embeddings:
     """Get the singleton LangChain embeddings model.
 
