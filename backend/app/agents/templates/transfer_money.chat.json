@@ -20,16 +20,20 @@
         "mode": "llm",
         "source": "last_user_message",
         "llm_variant": "sub_agent",
-        "system_prompt": "You are a strict intent extractor for a domestic bank-transfer sub-agent. You do not chat, explain, or ask follow-up questions — you only extract the fields below.\n\n## Task\nRead the user's message and extract the three fields. If the user did not mention a field, set it to null.\n\n## Fields\n- `amount` (number | null) — USD amount the user wants to transfer. Strip '$', commas, and the word 'dollars'. Must be > 0 and ≤ 1,000,000; otherwise null.\n- `from_account_hint` (string | null) — Free-text hint for the SOURCE account. Accept: 'checking', 'savings', 'money market', 'credit card', a last-4 like '6789', or a full account label. Preserve the user's phrasing verbatim.\n- `to_account_hint` (string | null) — Free-text hint for the DESTINATION account. Same vocabulary as `from_account_hint`.\n\n## Rules\n- Never guess, infer, or fabricate a field the user did not mention.\n- If the message is not a transfer request at all, return all nulls.\n- Preserve the user's phrasing for hints — don't rewrite 'checking acct' into 'checking'.\n\n## Examples\n- User: \"transfer $200 from checking to my savings\" → `{amount: 200, from_account_hint: \"checking\", to_account_hint: \"savings\"}`\n- User: \"send 1500 to my credit card 8222\" → `{amount: 1500, from_account_hint: null, to_account_hint: \"credit card 8222\"}`\n- User: \"move money to savings\" → `{amount: null, from_account_hint: null, to_account_hint: \"savings\"}`\n- User: \"pay my credit card\" → `{amount: null, from_account_hint: null, to_account_hint: \"credit card\"}`\n- User: \"what's my balance?\" → all nulls (balance question, not a transfer)\n- User: \"cancel\" → all nulls (abort — the escape classifier handles it)",
+        "system_prompt": "You are a strict intent extractor for a domestic bank-transfer sub-agent. You do not chat, explain, or ask follow-up questions — you only extract the fields below.\n\n## Task\nRead the user's message and decide which kind of transfer they want, then extract the supporting fields. If the user did not mention a field, set it to null. Never fabricate.\n\n## Fields\n- `transfer_type` (string | null) — one of: \"m2m\" | \"cc\" | \"zelle\".\n  Heuristics:\n  • Mentions \"zelle\" anywhere → zelle.\n  • Mentions \"send/pay <person>\" or names a specific person → zelle.\n  • Mentions a recipient/payee/contact in the abstract (\"my friend\", \"someone\", \"a person\") → zelle.\n  • View / list intents about people you can pay — \"show my recipients\", \"check my contacts\", \"who can I send to\", \"my payees\", \"my contacts\" → zelle.\n  • Mentions \"credit card\", \"my card\", or names a credit card product (e.g. \"Cash Rewards card\") → cc.\n  • Mentions \"checking\", \"savings\", \"money market\", or \"between my accounts\" → m2m.\n  • Pure \"transfer X from A to B\" with both A and B looking like own-account types → m2m.\n  • If genuinely ambiguous, set null — the dispatcher will default to m2m.\n- `amount` (number | null) — USD amount. Strip '$', commas, the word 'dollars'. Must be > 0 and ≤ 1,000,000. Set to null when the user is just viewing recipients without specifying an amount.\n- `from_account_hint` (string | null) — Free-text hint for the SOURCE account/funding. Vocab: 'checking', 'savings', 'money market', a last-4 like '6789', or a full account label.\n- `to_account_hint` (string | null) — Free-text hint for the DESTINATION account when transfer_type is m2m or cc. For cc, this is the credit-card label. Leave null for zelle.\n- `payee_hint` (string | null) — Recipient name or alias for ZELLE only (e.g. \"Chris\", \"Sam Rivera\", \"sam@example.com\"). Strip trailing connector words like \"via zelle\". Leave null for m2m/cc, AND null when the user is just viewing recipients without naming one (\"my friend\", \"someone\", \"a recipient\" → null, NOT a hint).\n\n## Rules\n- Never guess, infer, or fabricate.\n- If the message is not a transfer or recipient-related request at all, return all nulls.\n- Preserve the user's phrasing for hints.\n- Put a NAMED recipient in `payee_hint` (NOT `to_account_hint`) whenever transfer_type is zelle.\n- Generic recipient placeholders (\"my friend\", \"someone\", \"a person\") are NOT names — payee_hint must stay null in that case.\n\n## Examples\n- User: \"transfer $200 from checking to my savings\"\n  → {transfer_type: \"m2m\", amount: 200, from_account_hint: \"checking\", to_account_hint: \"savings\", payee_hint: null}\n- User: \"send 1500 to my credit card 8222\"\n  → {transfer_type: \"cc\", amount: 1500, from_account_hint: null, to_account_hint: \"credit card 8222\", payee_hint: null}\n- User: \"pay my credit card\"\n  → {transfer_type: \"cc\", amount: null, from_account_hint: null, to_account_hint: \"credit card\", payee_hint: null}\n- User: \"send $30 to Chris via zelle\"\n  → {transfer_type: \"zelle\", amount: 30, from_account_hint: null, to_account_hint: null, payee_hint: \"Chris\"}\n- User: \"send 50 to Sam Rivera\"\n  → {transfer_type: \"zelle\", amount: 50, from_account_hint: null, to_account_hint: null, payee_hint: \"Sam Rivera\"}\n- User: \"send 300 to my friend\"\n  → {transfer_type: \"zelle\", amount: 300, from_account_hint: null, to_account_hint: null, payee_hint: null}\n- User: \"check my recipient\" / \"show my Zelle contacts\" / \"who can I send money to\"\n  → {transfer_type: \"zelle\", amount: null, from_account_hint: null, to_account_hint: null, payee_hint: null}\n- User: \"move money to savings\"\n  → {transfer_type: \"m2m\", amount: null, from_account_hint: null, to_account_hint: \"savings\", payee_hint: null}\n- User: \"what's my balance?\" → all nulls.\n- User: \"cancel\" → all nulls.",
         "output_schema": {
+          "transfer_type": {"type": "string", "nullable": true, "description": "m2m | cc | zelle"},
           "amount": {"type": "number", "nullable": true, "description": "USD amount > 0"},
           "from_account_hint": {"type": "string", "nullable": true},
-          "to_account_hint": {"type": "string", "nullable": true}
+          "to_account_hint": {"type": "string", "nullable": true},
+          "payee_hint": {"type": "string", "nullable": true}
         },
         "writes": {
+          "transfer_type": "transfer_type",
           "amount": "amount",
           "from_account_hint": "from_account_hint",
-          "to_account_hint": "to_account_hint"
+          "to_account_hint": "to_account_hint",
+          "payee_hint": "payee_hint"
         }
       }
     },
@@ -37,21 +41,40 @@
     {
       "id": "dispatch",
       "type": "condition_node",
-      "data": {
-        "label": "Dispatch (deterministic)"
-      }
+      "data": {"label": "Dispatch (deterministic)"}
     },
 
     {
-      "id": "load_details",
+      "id": "load_m2m",
       "type": "tool_call_node",
       "data": {
-        "label": "Load eligible accounts",
+        "label": "Load m2m accounts",
         "tool": "transfer",
         "action": "get_details",
         "params": {"transfer_type": "m2m"},
-        "output_var": "transfer_details",
-        "on_error": "abort"
+        "output_var": "transfer_details"
+      }
+    },
+    {
+      "id": "load_cc",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Load cc accounts",
+        "tool": "transfer",
+        "action": "get_details",
+        "params": {"transfer_type": "cc"},
+        "output_var": "transfer_details"
+      }
+    },
+    {
+      "id": "load_zelle",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Load zelle payees + funding",
+        "tool": "transfer",
+        "action": "get_details",
+        "params": {"transfer_type": "zelle"},
+        "output_var": "transfer_details"
       }
     },
 
@@ -66,31 +89,43 @@
           "hint": "{{variables.from_account_hint}}",
           "candidates": "{{variables.transfer_details.sourceAccounts}}"
         },
-        "output_var": "from_account",
-        "on_error": "abort"
+        "output_var": "from_account"
       }
     },
     {
       "id": "resolve_to",
       "type": "tool_call_node",
       "data": {
-        "label": "Resolve 'to' hint",
+        "label": "Resolve 'to' hint (m2m / cc)",
         "tool": "transfer",
         "action": "resolve_account",
         "params": {
           "hint": "{{variables.to_account_hint}}",
           "candidates": "{{variables.transfer_details.destinationAccounts}}"
         },
-        "output_var": "to_account",
-        "on_error": "abort"
+        "output_var": "to_account"
+      }
+    },
+    {
+      "id": "resolve_payee",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Resolve Zelle payee hint",
+        "tool": "transfer",
+        "action": "resolve_payee",
+        "params": {
+          "hint": "{{variables.payee_hint}}",
+          "payees": "{{variables.transfer_details.payeeList}}"
+        },
+        "output_var": "to_account"
       }
     },
 
     {
-      "id": "response_form",
+      "id": "response_form_m2m",
       "type": "response_node",
       "data": {
-        "label": "Show transfer form",
+        "label": "Show m2m form",
         "return_mode": "widget",
         "widget": {
           "widget_type": "transfer_form",
@@ -102,9 +137,123 @@
             "from_account_hint": "{{variables.from_account_hint}}",
             "to_account_hint": "{{variables.to_account_hint}}",
             "source_options": "{{variables.transfer_details.sourceAccounts}}",
-            "target_options": "{{variables.transfer_details.destinationAccounts}}"
+            "target_options": "{{variables.transfer_details.destinationAccounts}}",
+            "transfer_type": "m2m"
           },
           "metadata": {"flow": "chat", "transfer_type": "m2m"}
+        }
+      }
+    },
+    {
+      "id": "response_form_cc",
+      "type": "response_node",
+      "data": {
+        "label": "Show cc form",
+        "return_mode": "widget",
+        "widget": {
+          "widget_type": "transfer_form",
+          "title": "Pay credit card",
+          "data_template": {
+            "amount": "{{variables.amount}}",
+            "from_account": "{{variables.from_account}}",
+            "to_account": "{{variables.to_account}}",
+            "from_account_hint": "{{variables.from_account_hint}}",
+            "to_account_hint": "{{variables.to_account_hint}}",
+            "source_options": "{{variables.transfer_details.sourceAccounts}}",
+            "target_options": "{{variables.transfer_details.destinationAccounts}}",
+            "transfer_type": "cc"
+          },
+          "metadata": {"flow": "chat", "transfer_type": "cc"}
+        }
+      }
+    },
+    {
+      "id": "response_form_zelle",
+      "type": "response_node",
+      "data": {
+        "label": "Show zelle form",
+        "return_mode": "widget",
+        "widget": {
+          "widget_type": "transfer_form",
+          "title": "Send with Zelle",
+          "data_template": {
+            "amount": "{{variables.amount}}",
+            "from_account": "{{variables.from_account}}",
+            "to_account": "{{variables.to_account}}",
+            "from_account_hint": "{{variables.from_account_hint}}",
+            "to_account_hint": "{{variables.payee_hint}}",
+            "payee_hint": "{{variables.payee_hint}}",
+            "source_options": "{{variables.transfer_details.sourceAccounts}}",
+            "target_options": "{{variables.transfer_details.payeeOptions}}",
+            "transfer_type": "zelle"
+          },
+          "metadata": {"flow": "chat", "transfer_type": "zelle"}
+        }
+      }
+    },
+
+    {
+      "id": "response_cc_no_card",
+      "type": "response_node",
+      "data": {
+        "label": "CC: no eligible card",
+        "return_mode": "widget",
+        "widget": {
+          "widget_type": "transfer_form",
+          "title": "Pay credit card",
+          "data_template": {
+            "amount": "{{variables.amount}}",
+            "from_account_hint": "{{variables.from_account_hint}}",
+            "to_account_hint": "{{variables.to_account_hint}}",
+            "source_options": "{{variables.transfer_details.sourceAccounts}}",
+            "target_options": [],
+            "transfer_type": "cc",
+            "notice": "You don't have a credit card on file with us. Add one in your account settings to make credit card payments here."
+          },
+          "metadata": {"flow": "chat", "transfer_type": "cc", "dead_end": "no_card"}
+        }
+      }
+    },
+    {
+      "id": "response_zelle_not_enrolled",
+      "type": "response_node",
+      "data": {
+        "label": "Zelle: not enrolled / no payees",
+        "return_mode": "widget",
+        "widget": {
+          "widget_type": "transfer_form",
+          "title": "Send with Zelle",
+          "data_template": {
+            "amount": "{{variables.amount}}",
+            "payee_hint": "{{variables.payee_hint}}",
+            "source_options": "{{variables.transfer_details.sourceAccounts}}",
+            "target_options": [],
+            "transfer_type": "zelle",
+            "notice": "You're not enrolled in Zelle yet. Enroll in your account settings to send money to friends and family."
+          },
+          "metadata": {"flow": "chat", "transfer_type": "zelle", "dead_end": "not_enrolled"}
+        }
+      }
+    },
+    {
+      "id": "response_m2m_one_account",
+      "type": "response_node",
+      "data": {
+        "label": "M2M: only one eligible account",
+        "return_mode": "widget",
+        "widget": {
+          "widget_type": "transfer_form",
+          "title": "Confirm transfer",
+          "data_template": {
+            "amount": "{{variables.amount}}",
+            "from_account_hint": "{{variables.from_account_hint}}",
+            "to_account_hint": "{{variables.to_account_hint}}",
+            "source_options": "{{variables.transfer_details.sourceAccounts}}",
+            "target_options": "{{variables.transfer_details.destinationAccounts}}",
+            "transfer_type": "m2m",
+            "notice": "You only have one eligible account for this kind of transfer. Open another account to move money between accounts."
+          },
+          "metadata": {"flow": "chat", "transfer_type": "m2m", "dead_end": "one_account"}
         }
       }
     },
@@ -124,7 +273,7 @@
       "id": "response_failed",
       "type": "response_node",
       "data": {
-        "label": "Couldn't start transfer",
+        "label": "Couldn't start transfer (system error)",
         "return_mode": "to_orchestrator",
         "text_template": "I wasn't able to start the transfer right now. Please try again in a moment."
       }
@@ -136,17 +285,40 @@
 
     {"source": "dispatch", "target": "response_failed",
      "predicate": "has(variables.transfer_details) && variables.transfer_details.status == 'ERROR'"},
-    {"source": "dispatch", "target": "load_details",
+
+    {"source": "dispatch", "target": "load_zelle",
+     "predicate": "variables.transfer_type == 'zelle' && !has(variables.transfer_details)"},
+    {"source": "dispatch", "target": "load_cc",
+     "predicate": "variables.transfer_type == 'cc' && !has(variables.transfer_details)"},
+    {"source": "dispatch", "target": "load_m2m",
      "predicate": "!has(variables.transfer_details)"},
+
+    {"source": "dispatch", "target": "response_zelle_not_enrolled",
+     "predicate": "variables.transfer_type == 'zelle' && is_empty(variables.transfer_details.payeeOptions)"},
+    {"source": "dispatch", "target": "response_cc_no_card",
+     "predicate": "variables.transfer_type == 'cc' && is_empty(variables.transfer_details.destinationAccounts)"},
+    {"source": "dispatch", "target": "response_m2m_one_account",
+     "predicate": "(variables.transfer_type == 'm2m' || !has(variables.transfer_type)) && variables.transfer_details._eligiblePairs <= 0"},
+
     {"source": "dispatch", "target": "resolve_from",
      "predicate": "has(variables.from_account_hint) && !has(variables.from_account)"},
+    {"source": "dispatch", "target": "resolve_payee",
+     "predicate": "variables.transfer_type == 'zelle' && has(variables.payee_hint) && !has(variables.to_account)"},
     {"source": "dispatch", "target": "resolve_to",
-     "predicate": "has(variables.to_account_hint) && !has(variables.to_account)"},
-    {"source": "dispatch", "target": "response_form",
+     "predicate": "variables.transfer_type != 'zelle' && has(variables.to_account_hint) && !has(variables.to_account)"},
+
+    {"source": "dispatch", "target": "response_form_zelle",
+     "predicate": "variables.transfer_type == 'zelle'"},
+    {"source": "dispatch", "target": "response_form_cc",
+     "predicate": "variables.transfer_type == 'cc'"},
+    {"source": "dispatch", "target": "response_form_m2m",
      "predicate": "true"},
 
-    {"source": "load_details", "target": "dispatch"},
+    {"source": "load_m2m", "target": "dispatch"},
+    {"source": "load_cc", "target": "dispatch"},
+    {"source": "load_zelle", "target": "dispatch"},
     {"source": "resolve_from", "target": "dispatch"},
-    {"source": "resolve_to", "target": "dispatch"}
+    {"source": "resolve_to", "target": "dispatch"},
+    {"source": "resolve_payee", "target": "dispatch"}
   ]
 }

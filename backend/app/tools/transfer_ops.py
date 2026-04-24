@@ -102,9 +102,44 @@ class TransferOpsTool(AgentTool):
         user_id = context.get("user_id", "")
         tt = _coerce_transfer_type(params.get("transfer_type"))
         try:
-            return _svc().get_transfer_details(user_id, tt)
+            data = _svc().get_transfer_details(user_id, tt)
         except (ValueError, FileNotFoundError, KeyError) as e:
             return _err("system", f"get_transfer_details: {e}")
+        # For m2m: count distinct (source, destination) pairs. Same-account
+        # entries on both sides — common for users with a single account —
+        # collapse to zero pairs, which the template uses to render a
+        # "you only have one eligible account" notice instead of a form
+        # the user can't actually submit.
+        if tt == TransferType.M2M and isinstance(data, dict):
+            srcs = data.get("sourceAccounts") or []
+            dsts = data.get("destinationAccounts") or []
+            src_ids = {(s.get("accountTempId") or s.get("accountReferenceId")) for s in srcs if isinstance(s, dict)}
+            dst_ids = {(d.get("accountTempId") or d.get("accountReferenceId")) for d in dsts if isinstance(d, dict)}
+            data["_eligiblePairs"] = sum(1 for s in src_ids for d in dst_ids if s and d and s != d)
+        # Zelle returns a payeeList but no sourceAccounts. Borrow the user's
+        # m2m sourceAccounts as the funding picker and normalize payeeList
+        # into the {accountLabel, accountReferenceId} shape the widget's
+        # <select> already renders. Wrap m2m fetch defensively — a user with
+        # no m2m profile still gets the zelle widget (with an empty source
+        # picker) rather than a sub-agent crash.
+        if tt == TransferType.ZELLE and isinstance(data, dict):
+            data["payeeOptions"] = [
+                {
+                    "accountLabel": p.get("payeeDisplayName") or p.get("payeeAlias") or "Payee",
+                    "accountReferenceId": p.get("payeeReferenceId") or "",
+                    "accountTempId": p.get("payeeReferenceId") or "",
+                    "payee_alias": p.get("payeeAlias") or "",
+                    "_kind": "zelle_payee",
+                }
+                for p in (data.get("payeeList") or [])
+                if isinstance(p, dict)
+            ]
+            try:
+                m2m = _svc().get_transfer_details(user_id, TransferType.M2M)
+                data["sourceAccounts"] = (m2m or {}).get("sourceAccounts") or []
+            except (ValueError, FileNotFoundError, KeyError):
+                data["sourceAccounts"] = []
+        return data
 
     @action(
         "get_pair",
@@ -294,6 +329,66 @@ class TransferOpsTool(AgentTool):
             f"no account matched hint {hint!r}",
             user_facing_message=f"I couldn't match '{hint}' to one of your accounts.",
         )
+
+    @action(
+        "resolve_payee",
+        description="Fuzzy-match a Zelle payee hint (name, first name, or alias fragment) against the user's payeeList. Returns an option-shaped dict matching what the widget select expects, or an ERROR.",
+        params_schema={
+            "type": "object",
+            "properties": {
+                "hint": {"type": "string", "description": "Free-text payee hint — 'Chris', 'Sam Rivera', or part of an alias."},
+                "payees": {"type": "array", "description": "payeeList from get_details (zelle)."},
+            },
+            "required": ["hint", "payees"],
+        },
+    )
+    async def resolve_payee(self, params: dict, context: dict) -> dict:
+        hint = (params.get("hint") or "").strip()
+        payees = params.get("payees") or []
+        if not hint:
+            return _err("validation", "hint is empty")
+        if not isinstance(payees, list) or not payees:
+            return _err(
+                "validation",
+                "no payees available",
+                user_facing_message="You don't have any Zelle payees on file yet.",
+            )
+        h = hint.lower()
+        # Strip common connector phrasing like "via zelle", "by zelle", "on zelle"
+        # so "Chris via Zelle" reduces to "chris".
+        for suffix in (" via zelle", " by zelle", " on zelle", " through zelle"):
+            if h.endswith(suffix):
+                h = h[: -len(suffix)].strip()
+        # Match priority: exact name → name prefix → name substring → alias substring.
+        def _candidate(pred):
+            for p in payees:
+                if not isinstance(p, dict):
+                    continue
+                name = (p.get("payeeDisplayName") or "").lower()
+                alias = (p.get("payeeAlias") or "").lower()
+                if pred(name, alias):
+                    return p
+            return None
+
+        matched = (
+            _candidate(lambda n, a: n == h)
+            or _candidate(lambda n, a: n.startswith(h))
+            or _candidate(lambda n, a: h in n)
+            or _candidate(lambda n, a: h in a)
+        )
+        if not matched:
+            return _err(
+                "validation",
+                f"no payee matched hint {hint!r}",
+                user_facing_message=f"I couldn't find '{hint}' in your Zelle contacts.",
+            )
+        return {
+            "accountLabel": matched.get("payeeDisplayName") or matched.get("payeeAlias") or "Payee",
+            "accountReferenceId": matched.get("payeeReferenceId") or "",
+            "accountTempId": matched.get("payeeReferenceId") or "",
+            "payee_alias": matched.get("payeeAlias") or "",
+            "_kind": "zelle_payee",
+        }
 
 
 # Registration happens when app.tools.init_tools() runs.

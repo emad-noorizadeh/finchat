@@ -86,21 +86,26 @@ class TransferAgentTool(BaseTool):
 
     async def description(self, context=None):
         return (
-            "Initiate a money transfer. Supports THREE transfer types — the "
-            "sub-agent picks the right one from the user's wording:\n"
+            "Initiate a money transfer OR open the transfer widget for the user "
+            "to pick from. Supports THREE transfer types — the sub-agent picks "
+            "the right one from the user's wording:\n"
             "  • m2m   — between the user's OWN accounts (e.g. checking → savings)\n"
             "  • zelle — to a person (friend, family) by name or contact\n"
             "  • cc    — to pay an external credit-card account\n\n"
-            "Multi-step flow: detects type, collects amount + source + destination "
-            "(or payee for Zelle), confirms, executes. Pass the user's full request "
-            "verbatim as `message` — the sub-agent parses type, amount, and accounts.\n\n"
-            "When to call:\n"
-            "- Any phrase about moving money (\"transfer\", \"send\", \"move\", \"pay\")\n"
-            "- Any destination — the user's own account, another person, or an "
-            "  external credit card\n"
-            "- DO NOT decline person-to-person requests; route them — the sub-agent "
-            "  handles Zelle.\n\n"
-            "Do NOT pre-fill account or payee details — the sub-agent collects them."
+            "Always renders an interactive widget — even with partial info. The widget "
+            "surfaces source/destination pickers, the payee list (Zelle), and an amount "
+            "field, and collects whatever the user didn't specify. Pass the user's full "
+            "request verbatim as `message`.\n\n"
+            "When to call (call IMMEDIATELY — do NOT pre-ask for details):\n"
+            "- Any phrase about moving money: \"transfer\", \"send\", \"move\", \"pay\"\n"
+            "- Any destination — own account, a person (Zelle), or a credit card\n"
+            "- Even if amount, source, payee, or recipient is missing or vague\n"
+            "  (\"send to my friend\", \"pay my card\", \"transfer some money\")\n"
+            "- Requests to SEE Zelle contacts / saved payees / transfer recipients\n"
+            "  (\"show my Zelle contacts\", \"check my recipients\", \"who can I send to\")\n"
+            "  — the Zelle widget exposes the saved payee list; no separate list tool.\n\n"
+            "Do NOT pre-fill account or payee details — the sub-agent + widget collect them. "
+            "Do NOT ask \"who?\" or \"which account?\" before calling — the widget asks, visually."
         )
 
     async def input_schema(self):

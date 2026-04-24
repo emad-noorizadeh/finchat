@@ -230,11 +230,21 @@ export default function TransferForm({ widget, onAction, status }) {
   }
 
   // --- Form stage (default) ---
-  const canValidate = amount && fromId && toId && fromId !== toId && Number(amount) > 0
+  // For Zelle, source≠target sameness check doesn't apply (different ID spaces).
+  const isZelle = data.transfer_type === 'zelle'
+  const canValidate = amount && fromId && toId && (isZelle || fromId !== toId) && Number(amount) > 0
+  const notice = data.notice
+  const targetLabel = isZelle ? 'To (Zelle contact)' : 'To'
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
       <h3 className="text-sm font-semibold text-gray-800 mb-3">{widget?.title || 'Confirm transfer'}</h3>
+
+      {notice && (
+        <div className="mb-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+          {notice}
+        </div>
+      )}
 
       <div className="space-y-3">
         <label className="block">
@@ -271,20 +281,21 @@ export default function TransferForm({ widget, onAction, status }) {
         </label>
 
         <label className="block">
-          <span className="text-xs text-gray-600">To</span>
+          <span className="text-xs text-gray-600">{targetLabel}</span>
           <select
             value={toId}
             onChange={(e) => setToId(e.target.value)}
             className="mt-0.5 w-full px-3 py-2 text-sm border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
-            disabled={busy}
+            disabled={busy || targetOptions.length === 0}
           >
-            <option value="">Select account…</option>
+            <option value="">{targetOptions.length === 0 ? (isZelle ? 'No Zelle contacts' : 'No eligible accounts') : 'Select…'}</option>
             {targetOptions.map((o) => {
               const id = o.accountTempId || o.accountReferenceId
               const bal = o.availableBalance ?? o.currentBalInfo?.amt ?? o.balance
+              const subtitle = o.payee_alias || ''
               return (
                 <option key={id} value={id}>
-                  {o.accountLabel || o.displayName}{bal != null ? ` — $${bal}` : ''}
+                  {o.accountLabel || o.displayName}{bal != null ? ` — $${bal}` : ''}{subtitle ? ` · ${subtitle}` : ''}
                 </option>
               )
             })}
