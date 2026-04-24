@@ -1,9 +1,13 @@
+import logging
 from datetime import datetime, timezone
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.models.chat import ChatSession, Message, MemoryFact
 from app.models.profile import Profile
+
+_log = logging.getLogger(__name__)
 
 
 class MemoryService:
@@ -86,6 +90,26 @@ class MemoryService:
         if not self.collection:
             return []
 
+        # Skip the Chroma query when no memory facts exist for this user.
+        # The collection was created without an explicit embedding_function,
+        # so query_texts triggers Chroma's default (SentenceTransformer with
+        # all-MiniLM-L6-v2 fetched from HuggingFace) — that download hangs
+        # for tens of seconds on airgapped corp networks. When the user has
+        # no facts, the call returns nothing anyway, so the embedding work
+        # is pure waste.
+        count = self.session.exec(
+            select(func.count()).select_from(MemoryFact).where(MemoryFact.user_id == user_id)
+        ).one()
+        # SQLModel returns int directly; SQLAlchemy returns a tuple.
+        if isinstance(count, tuple):
+            count = count[0]
+        if not count:
+            _log.info(
+                "[memory_search.skip] user_id=%s reason=no_facts (skipped Chroma query)",
+                user_id,
+            )
+            return []
+
         try:
             results = self.collection.query(
                 query_texts=[query],
@@ -94,6 +118,8 @@ class MemoryService:
             )
             if results and results.get("documents"):
                 return results["documents"][0]
-        except Exception:
-            pass
+        except Exception as e:  # noqa: BLE001
+            _log.warning(
+                "[memory_search.error] user_id=%s err=%s", user_id, e,
+            )
         return []
