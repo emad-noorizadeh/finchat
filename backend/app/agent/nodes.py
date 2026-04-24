@@ -197,12 +197,15 @@ async def enrich(state: AgentState) -> dict:
         from app.services import profile_service
         from app.services.transaction_service import load_transactions
         if not profile_service.is_loaded(user_id):
+            _t0 = time.perf_counter()
             try:
                 profile_service.load_profile(user_id)
                 prefix = profile_service.get_file_prefix(user_id)
                 if prefix:
                     load_transactions(user_id, prefix)
-                logger.info("[session_rehydrate] user_id=%s", user_id)
+                _dt = (time.perf_counter() - _t0) * 1000
+                logger.info("[session_rehydrate] user_id=%s duration_ms=%.0f", user_id, _dt)
+                logger.info("[enrich_step.v1] step=session_rehydrate duration_ms=%.0f", _dt)
                 m = current_turn_metrics()
                 if m is not None:
                     m["rehydrated"] = True
@@ -228,20 +231,39 @@ async def enrich(state: AgentState) -> dict:
         from app.services.memory import MemoryService
         from app.database import get_session_context, get_chroma_client
 
+        _t0 = time.perf_counter()
         with get_session_context() as db_session:
+            _t1 = time.perf_counter()
             memory = MemoryService(db_session, get_chroma_client())
+            _t2 = time.perf_counter()
             enrichment = EnrichmentService(memory)
             base_prompt = enrichment.build_system_prompt(state["user_id"], state["session_id"])
+            _t3 = time.perf_counter()
         updates["base_system_prompt"] = base_prompt
+        # Per-substep timing — chroma_init separates the persistent-client
+        # warmup (which on cold prod can be many seconds for first query)
+        # from the actual prompt build (which is dominated by Chroma's
+        # search_memories embedding call against your gateway).
+        logger.info(
+            "[enrich_step.v1] step=build_system_prompt duration_ms=%.0f "
+            "db_ctx_ms=%.0f chroma_init_ms=%.0f prompt_build_ms=%.0f prompt_chars=%d",
+            (_t3 - _t0) * 1000, (_t1 - _t0) * 1000,
+            (_t2 - _t1) * 1000, (_t3 - _t2) * 1000, len(base_prompt),
+        )
     else:
         base_prompt = state["base_system_prompt"]
 
     # Rebuild always-loaded tool schemas every turn — knowledge_search.description()
     # injects a dynamic KB descriptor that may change mid-session.
+    _t_sch = time.perf_counter()
     always_load = get_always_load_tools(channel)
     always_names = {t.name for t in always_load}
     fresh_schemas = [await t.to_openai_schema() for t in always_load]
     fresh_names = [t.name for t in always_load]
+    logger.info(
+        "[enrich_step.v1] step=tool_schemas duration_ms=%.0f tool_count=%d",
+        (time.perf_counter() - _t_sch) * 1000, len(always_load),
+    )
 
     # Preserve deferred tools that tool_search has already discovered.
     prev_names = state.get("available_tools", []) or []

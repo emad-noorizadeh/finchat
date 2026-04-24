@@ -1,5 +1,11 @@
+import logging
+import time
+
 from app.services.memory import MemoryService
 from app.services.profile_service import get_profile, get_accounts
+
+
+_log = logging.getLogger(__name__)
 
 
 class EnrichmentService:
@@ -7,10 +13,26 @@ class EnrichmentService:
         self.memory = memory
 
     def build_system_prompt(self, user_id: str, session_id: str) -> str:
-        # Get real profile data from in-memory store
+        # Per-substep timing inside the build — split the three slow
+        # candidates (in-memory profile read, in-memory accounts read,
+        # Chroma memory.search_memories which triggers an EMBEDDING CALL
+        # against the LLM gateway). On airgapped prod the embedding call
+        # is the most likely culprit when build_system_prompt blocks.
+        _t0 = time.perf_counter()
         profile = get_profile(user_id)
+        _t_profile = time.perf_counter()
         accounts = get_accounts(user_id)
+        _t_accounts = time.perf_counter()
         memories = self.memory.search_memories(user_id, "general context", n_results=3)
+        _t_memories = time.perf_counter()
+        _log.info(
+            "[build_system_prompt.v1] profile_ms=%.0f accounts_ms=%.0f "
+            "memory_search_ms=%.0f memory_count=%d",
+            (_t_profile - _t0) * 1000,
+            (_t_accounts - _t_profile) * 1000,
+            (_t_memories - _t_accounts) * 1000,
+            len(memories) if memories else 0,
+        )
 
         if profile:
             name_info = profile.get("profileName", {})
