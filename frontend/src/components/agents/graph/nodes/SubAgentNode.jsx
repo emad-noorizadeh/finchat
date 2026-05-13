@@ -34,13 +34,20 @@ function summary(type, data) {
   }
 }
 
+// Badge resolution — explicit data.kind wins. The id/label regex below is a
+// fallback so existing seed templates (response_failed, response_retry_*)
+// keep their visual hint without needing a template edit.
 function responseBadge(id, data) {
   if (!data) return null
+  const kind = data.kind || ''
+  if (kind === 'failure') return { text: 'failure', cls: 'bg-rose-100 text-rose-700' }
+  if (kind === 'retry')   return { text: 'retry exhausted', cls: 'bg-amber-100 text-amber-700' }
   if (data.is_escape_target) return { text: 'escape target', cls: 'bg-amber-100 text-amber-700' }
-  if (/retry/i.test(id) || /retry/i.test(data.label || '')) {
+  // Fallback heuristics for older templates without explicit kind.
+  if (!kind && (/retry/i.test(id) || /retry/i.test(data.label || ''))) {
     return { text: 'retry exhausted', cls: 'bg-amber-100 text-amber-700' }
   }
-  if (/fail/i.test(id) || /fail/i.test(data.label || '')) {
+  if (!kind && (/fail/i.test(id) || /fail/i.test(data.label || ''))) {
     return { text: 'failure', cls: 'bg-rose-100 text-rose-700' }
   }
   if ((data.return_mode || 'to_orchestrator') === 'widget') {

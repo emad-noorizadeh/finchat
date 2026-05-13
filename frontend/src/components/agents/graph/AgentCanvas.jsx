@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import ReactFlow, { Background, Controls, addEdge, useNodesState, useEdgesState } from 'reactflow'
+import ReactFlow, { Background, Controls, MarkerType, addEdge, useNodesState, useEdgesState } from 'reactflow'
 import 'reactflow/dist/style.css'
 
 import {
@@ -288,6 +288,7 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect }) {
         (sourceHandle === 'r-out' && targetHandle === 'l-in' &&
          (positionById.get(e.target)?.y ?? 0) < (positionById.get(e.source)?.y ?? 0))
       : false
+    const stroke = e._runtime ? '#d97706' : (isLoop ? '#60a5fa' : '#94a3b8')
     return {
       id: e.id,
       source: e.source,
@@ -306,10 +307,12 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect }) {
       labelBgPadding: [6, 3],
       label: e.label || (e.predicate ? `[${e._i ?? 0}] ${truncate(e.predicate, 32)}` : undefined),
       style: {
-        stroke: e._runtime ? '#d97706' : (isLoop ? '#60a5fa' : '#94a3b8'),
+        stroke,
         strokeWidth: isLoop ? 1.25 : 1.5,
         strokeDasharray: e._runtime ? '4 3' : (isLoop ? '2 4' : undefined),
       },
+      // Arrowhead so direction is obvious — colour-matches the edge stroke.
+      markerEnd: { type: MarkerType.ArrowClosed, color: stroke, width: 16, height: 16 },
     }
   }
 
@@ -355,6 +358,7 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect }) {
         labelStyle: { fontSize: 10, fill: '#6b7280', fontWeight: 500 },
         labelBgStyle: { fill: '#f9fafb', stroke: '#e5e7eb', strokeWidth: 1 },
         labelBgPadding: [6, 3],
+        markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8', width: 16, height: 16 },
       }
       const updated = addEdge(newEdge, edges)
       setEdges(updated)
@@ -412,6 +416,11 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect }) {
       </ReactFlow>
       <div className="absolute bottom-4 left-4 z-10">
         <AddNodeMenu onAdd={handleAddNode} />
+      </div>
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+        <div className="px-3 py-1 rounded-full bg-white/90 border border-gray-200 text-[11px] text-gray-600 shadow-sm">
+          Drag from a node's bottom or side dot to another node's top dot to add an edge. Dashed orange = runtime-injected.
+        </div>
       </div>
     </div>
   )

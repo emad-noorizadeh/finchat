@@ -342,7 +342,13 @@ function ToolCallNodeEditor({ data, update, nodeIds, agentName }) {
     fetch(`/api/tools${q}`).then((r) => r.json()).then((d) => setTools(d || [])).catch(() => setTools([]))
   }, [agentName])
 
-  const list = Array.isArray(tools) ? tools : []
+  // tool_call_node dispatches AgentTools (tools with declared actions) via
+  // tool.dispatch(action, params, context). Plain BaseTools don't have a
+  // dispatch surface — showing them here would only mislead. BaseTools are
+  // still selectable in llm_node's `tools` field where they're called by
+  // the LLM directly through the tool_caller closure.
+  const rawList = Array.isArray(tools) ? tools : []
+  const list = rawList.filter((t) => Array.isArray(t.actions) && t.actions.length > 0)
   const toolByName = new Map(list.map((t) => [t.name, t]))
   const currentTool = data.tool ? toolByName.get(data.tool) : null
   const actions = currentTool?.actions || []
@@ -513,6 +519,15 @@ function ResponseNodeEditor({ data, update }) {
       <SelectField label="Return mode" value={rm}
         onChange={(v) => update('return_mode', v)}
         options={RETURN_MODES} includeBlank={false} />
+      <SelectField label="Variant (visual badge + routing hint)"
+        value={data.kind || 'normal'}
+        onChange={(v) => update('kind', v === 'normal' ? '' : v)}
+        options={[
+          { value: 'normal',  label: 'Normal' },
+          { value: 'failure', label: 'Failure — sub-agent failed' },
+          { value: 'retry',   label: 'Retry exhausted — slot capture gave up' },
+        ]}
+        includeBlank={false} />
       <CheckboxField label="Escape target (routed to on abort / topic_change)"
         value={data.is_escape_target}
         onChange={(v) => update('is_escape_target', v)} />

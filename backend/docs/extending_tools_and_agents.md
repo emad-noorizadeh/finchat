@@ -124,6 +124,21 @@ You can have both for the same underlying capability. E.g., the Transfer flow:
 - `TransferAgentTool(BaseTool)` is the Planner's entry — "transfer money" intent
 - `TransferOpsTool(AgentTool)` exposes `get_details`, `validate`, `submit` actions that the sub-agent's graph nodes call
 
+#### Which node type calls which?
+
+The Agent Builder's tool dropdowns are filtered accordingly — getting it right at authoring time is easier than debugging "my tool doesn't get called" later.
+
+| Sub-agent node | What it dispatches | Tool kind required |
+|---|---|---|
+| `tool_call_node` | `tool.dispatch(action, params, context)` — explicit `{tool, action}` from the template | **AgentTool** (with `@action(...)` declared) |
+| `llm_node` + `tool_node` | LLM picks tools listed in `llm_node.tools`, then `tool_node` runs whatever `tool_calls` came out via the `tool_caller` closure | **Either kind** — works with `BaseTool` or `AgentTool` |
+
+So:
+- **Deterministic step** ("always call X to fetch Y") → `tool_call_node` + `AgentTool`.
+- **LLM-decides** ("the model picks among these tools") → `llm_node` + `tool_node` with either kind in `tools`.
+
+If you want a sub-agent to call a `BaseTool` like `knowledge_search`, use the `llm_node` + `tool_node` pattern. The `tool_call_node`'s dropdown intentionally filters BaseTools out — they don't have a `dispatch` surface and would fail at runtime.
+
 ### Schema changes
 
 If your tool / agent / model change touches any column in `backend/app/models/`, you must generate an alembic migration:
@@ -171,8 +186,15 @@ Frontend: `frontend/src/components/agents/AgentBuilder.jsx` + `frontend/src/page
   - *General*: display name, slug, channel, **description** (LLM-facing), **search hint**.
   - *Prompt*: per-node prompt overview (read-only summary).
   - *Settings*: response format, read-only flag, require confirmation, **Always-load** checkbox.
-- **Centre — graph canvas** — drag nodes around, drag from a node handle to draw an edge. Click `+` to add a node (parse / condition / interrupt / tool_call / llm / tool / response).
-- **Right panel (Node Properties)** — appears when a node is selected. Every node type has its own editor (tool dropdown for `tool_call_node`, return-mode dropdown for `response_node`, etc.). Edits persist into form state as you go; the **Save** buttons at the top push everything to `/api/agents` in one request.
+- **Centre — graph canvas** — drag nodes around, drag from a node handle to draw an edge. Click `+` to add a node (parse / condition / interrupt / tool_call / llm / tool / response). A small hint above the canvas reminds you of the edge convention.
+- **Right panel (Node Properties)** — appears when a node is selected. Every node type has its own editor (tool dropdown for `tool_call_node`, return-mode + variant dropdowns for `response_node`, etc.). Edits persist into form state as you go; the **Save** buttons at the top push everything to `/api/agents` in one request.
+
+##### Edge conventions
+
+- **Direction**: every edge has an **arrowhead** at the target end. Drag from a node's **bottom dot (source)** to another node's **top dot (target)** for the default downflow. Side dots are split into `out` (60% down, source) and `in` (40% down, target) so forward and loop edges between the same pair don't overlap visually.
+- **Solid grey** = authored edge in your template.
+- **Dashed blue** = loop edge (e.g. `tool_call → dispatch` re-entry).
+- **Dashed orange ("runtime")** = synthetic edge the compiler injects at runtime — e.g. from a condition_node to a `response_node` with the **failure** or **escape** variant. You don't author these; they appear in the canvas so the routing is visible.
 
 ##### Step-by-step: build the `card_offer` agent
 
@@ -250,6 +272,7 @@ Select the node, then in the right panel:
 **Step 6 — configure the `respond` node.**
 
 - *Return mode:* `to_orchestrator` (the main LLM will paraphrase the result; no widget needed for this demo).
+- *Variant:* `Normal` (default). Use `Failure` for a node that handles tool errors and `Retry exhausted` for slot-capture giveups — those variants light up coloured badges on the node and the compiler auto-routes the `condition_node` to them. (Older templates picked these up via id/label regex; new templates should set the explicit Variant.)
 - *Text template:*
   > `Here are the available card offers — please summarize them for the user and let them know they can ask follow-up questions:\n\n{{variables.offers.offers}}`
 
