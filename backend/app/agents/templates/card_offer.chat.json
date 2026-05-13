@@ -1,0 +1,69 @@
+{
+  "name": "card_offer_chat",
+  "agent_name": "card_offer",
+  "display_name": "Card Offer (Chat)",
+  "channel": "chat",
+  "template_schema_version": 1,
+  "is_regulated": false,
+  "supported_channels": ["chat"],
+  "suspend_resume_allowed": false,
+  "locked_for_business_user_edit": false,
+
+  "description": "Recommend credit-card offers when the user asks about getting a new credit card, applying for one, or wants suggestions. Returns three options (travel, everyday, gas-saver) for the orchestrator to summarize.",
+  "search_hint": "credit card offer recommend suggest apply travel cash gas rewards new card",
+  "always_load": false,
+
+  "entry_node": "dispatch",
+
+  "nodes": [
+    {
+      "id": "dispatch",
+      "type": "condition_node",
+      "data": {"label": "Dispatch"}
+    },
+
+    {
+      "id": "load_offers",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Load card offers",
+        "tool": "card_offer",
+        "action": "list_offers",
+        "params": {},
+        "output_var": "offers",
+        "on_error": "abort"
+      }
+    },
+
+    {
+      "id": "respond",
+      "type": "response_node",
+      "data": {
+        "label": "Return offers to orchestrator",
+        "return_mode": "to_orchestrator",
+        "text_template": "Here are the available card offers — please summarize them for the user and let them know they can ask follow-up questions about any of these:\n\n{{variables.offers.offers}}"
+      }
+    },
+
+    {
+      "id": "response_failed",
+      "type": "response_node",
+      "data": {
+        "label": "Couldn't load offers",
+        "return_mode": "to_orchestrator",
+        "text_template": "I wasn't able to look up card offers right now. Please try again in a moment."
+      }
+    }
+  ],
+
+  "edges": [
+    {"source": "dispatch", "target": "response_failed",
+     "predicate": "has(variables.offers) && variables.offers.status == 'ERROR'"},
+    {"source": "dispatch", "target": "load_offers",
+     "predicate": "!has(variables.offers)"},
+    {"source": "dispatch", "target": "respond",
+     "predicate": "true"},
+
+    {"source": "load_offers", "target": "dispatch"}
+  ]
+}

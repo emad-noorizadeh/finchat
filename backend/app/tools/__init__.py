@@ -95,4 +95,4 @@ def init_tools():
     from app.tools import transfer_ops  # noqa — TransferOpsTool (sub-agent actions)
     from app.tools import refund_tool  # noqa — RefundAgentTool (planner entry)
     from app.tools import refund_ops  # noqa — RefundOpsTool (sub-agent actions)
-    from app.tools import card_offer  # noqa — GetCardOfferTool (deferred, sub-agent leaf)
+    from app.tools import card_offer_ops  # noqa — CardOfferOpsTool (AgentTool used by card_offer sub-agent)

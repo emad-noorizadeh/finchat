@@ -105,6 +105,25 @@ The bridge to the model is `BaseTool.to_openai_schema()` — it converts the too
 5. Add `from app.tools import your_module  # noqa` to `init_tools()` in `tools/__init__.py`.
 6. Restart backend. The tool now shows in `/api/tools`, in the Agent Builder, and (if always_load) is bound to every turn.
 
+### `BaseTool` vs `AgentTool` — when to use which
+
+There are **two tool kinds** in the codebase. Picking the wrong one is the #1 reason a new tool "doesn't get called."
+
+| | `BaseTool` (`app/tools/base.py`) | `AgentTool` (`app/tools/agent_tool.py`) |
+|---|---|---|
+| **Caller** | The main orchestrator's Planner LLM | A sub-agent's `tool_call_node` inside a template |
+| **Discovery** | `tool_search` (deferred) or always-load list | The sub-agent template names it: `{tool: "X", action: "Y"}` |
+| **Method** | `async def execute(input, context)` | `@action("name", ...) async def handler(self, params, context)` — one tool can declare multiple actions |
+| **Registration** | `register_tool(YourTool())` | `register_agent_tool(YourTool())` |
+| **Visible in `/api/tools`** | Yes (unless `is_internal=True`) | Yes, listed separately with declared actions |
+| **Example** | `get_profile_data`, `knowledge_search`, `transfer_money` (entry tool) | `transfer` (`get_details`, `validate`, `submit`), `refund` (`list_fees`, `submit_refund`), `card_offer` (`list_offers`) |
+
+**Rule of thumb:** if the Planner should be able to call it directly to answer a user → `BaseTool`. If it's a step inside a multi-step sub-agent flow → `AgentTool`.
+
+You can have both for the same underlying capability. E.g., the Transfer flow:
+- `TransferAgentTool(BaseTool)` is the Planner's entry — "transfer money" intent
+- `TransferOpsTool(AgentTool)` exposes `get_details`, `validate`, `submit` actions that the sub-agent's graph nodes call
+
 ### Schema changes
 
 If your tool / agent / model change touches any column in `backend/app/models/`, you must generate an alembic migration:
@@ -144,6 +163,124 @@ The architecture moved away from class-based sub-agents. **Agents are now JSON t
 #### Way A — the Agent Builder UI (the expected path for non-regulated agents)
 
 Frontend: `frontend/src/components/agents/AgentBuilder.jsx` + `frontend/src/pages/AgentBuilderPage.jsx`. Goes through the `/api/agents` write endpoints in `app/routers/agents.py`. After a write, the router auto-calls `refresh_dynamic_sub_agent_tools()` which rebuilds the registry. **No backend restart needed.**
+
+##### UI layout — what's where
+
+- **Top bar** — agent name, status, **Save as Draft** / **Save & Deploy**.
+- **Left panel (Settings)** — three tabs:
+  - *General*: display name, slug, channel, **description** (LLM-facing), **search hint**.
+  - *Prompt*: per-node prompt overview (read-only summary).
+  - *Settings*: response format, read-only flag, require confirmation, **Always-load** checkbox.
+- **Centre — graph canvas** — drag nodes around, drag from a node handle to draw an edge. Click `+` to add a node (parse / condition / interrupt / tool_call / llm / tool / response).
+- **Right panel (Node Properties)** — appears when a node is selected. Every node type has its own editor (tool dropdown for `tool_call_node`, return-mode dropdown for `response_node`, etc.). Edits persist into form state as you go; the **Save** buttons at the top push everything to `/api/agents` in one request.
+
+##### Step-by-step: build the `card_offer` agent
+
+This walks through a real working agent. The agent calls a tool and returns the result for the orchestrator to paraphrase. Output: when the user says "show me your card offers," the chat returns three card suggestions.
+
+**Step 1 — write the AgentTool** (the leaf that does the actual work).
+
+Sub-agent `tool_call_node` calls **AgentTools** (not `BaseTool` — see "BaseTool vs AgentTool" in Part 1). Create `backend/app/tools/card_offer_ops.py`:
+
+```python
+from app.tools.agent_tool import AgentTool, action, register_agent_tool
+
+_OFFERS = [
+    {"name": "Globetrotter Travel Card", "category": "travel", "annual_fee": 95,
+     "highlights": ["3x points on travel", "No foreign transaction fees"]},
+    {"name": "Everyday Cash Rewards",    "category": "everyday", "annual_fee": 0,
+     "highlights": ["1.5% cash back on every purchase", "No annual fee"]},
+    {"name": "Fuel Saver Card",          "category": "gas_saver", "annual_fee": 0,
+     "highlights": ["5% back at gas stations", "3% back on EV charging"]},
+]
+
+class CardOfferOpsTool(AgentTool):
+    name = "card_offer"
+    agent_name = "card_offer"       # scopes the tool to this sub-agent
+    description = "Card-offer operations."
+    scope = "sub_agent"
+
+    @action("list_offers",
+            description="Return a catalogue of credit-card offers.",
+            params_schema={"type": "object", "properties": {}},
+            output_schema={"type": "object", "properties": {"offers": {"type": "array"}}})
+    async def list_offers(self, params: dict, context: dict) -> dict:
+        return {"offers": _OFFERS}
+
+register_agent_tool(CardOfferOpsTool())
+```
+
+Then register the module in `app/tools/__init__.py:init_tools()`:
+
+```python
+from app.tools import card_offer_ops  # noqa
+```
+
+Restart the backend (uvicorn reload picks up the new import). Verify with `curl http://localhost:6000/api/tools | jq '.[] | select(.name=="card_offer")'` — the tool should appear with its `list_offers` action.
+
+**Step 2 — open the Builder UI.**
+
+Navigate to `http://localhost:6001/agents` → click **+ Create Agent**.
+
+**Step 3 — fill in General settings (left panel, General tab).**
+
+- *Display Name:* `Card Offer`
+- *Name (slug):* `card_offer` — this is the `agent_name` the registry uses.
+- *Channel:* `chat`
+- *Description:* what the Planner sees when deciding whether to call the agent. Be specific and example-driven:
+  > "Recommend credit-card offers when the user asks about getting a new credit card, applying for one, or wants suggestions. Returns three options (travel, everyday, gas-saver) for the orchestrator to summarize."
+- *Search Hint:* short keyword list that `tool_search` ranks against:
+  > "credit card offer recommend suggest apply travel cash gas rewards new card"
+
+**Step 4 — build the graph (centre canvas).**
+
+The default graph is `parse → dispatch → respond`. For `card_offer` we want: `dispatch → load_offers → respond`. (`parse` isn't needed because we don't extract slots from the user message.)
+
+- Delete the `parse` node (click → Delete in the right panel).
+- Click `+` → add a **tool_call** node. Position it between `dispatch` and `respond`. Drag an edge from `dispatch` to `load_offers`, then `load_offers` to `dispatch` (so the dispatcher re-routes after the tool returns).
+
+**Step 5 — configure the `load_offers` (tool_call_node) — right panel.**
+
+Select the node, then in the right panel:
+- *Tool:* select `card_offer` from the dropdown (the AgentTool you registered in step 1).
+- *Action:* select `list_offers` (the only declared action).
+- *Params:* leave as `{}`.
+- *Output var:* `offers` — the runtime will write the tool's return value to `state.variables.offers`.
+
+**Step 6 — configure the `respond` node.**
+
+- *Return mode:* `to_orchestrator` (the main LLM will paraphrase the result; no widget needed for this demo).
+- *Text template:*
+  > `Here are the available card offers — please summarize them for the user and let them know they can ask follow-up questions:\n\n{{variables.offers.offers}}`
+
+  The `{{variables.offers.offers}}` syntax pulls the offers list out of the slot (see Part 4.2 for substitution rules).
+
+**Step 7 — wire the dispatch edges.**
+
+Click the `dispatch` node. The right panel shows outgoing edges in order. Add three predicates (top edge wins):
+
+1. `dispatch → load_offers` with predicate `!has(variables.offers)` — first run: fetch.
+2. `dispatch → respond` with predicate `true` — after `load_offers` re-enters dispatch, this catches it.
+
+(Predicate DSL spec: Part 4.1.)
+
+**Step 8 — Save & Deploy.**
+
+Top-right **Save & Deploy** button. The Builder POSTs to `/api/agents`, which:
+- Validates the graph via the template loader.
+- Persists the row to `sub_agent_templates`.
+- Calls `refresh_dynamic_sub_agent_tools()` — your new agent is now in the tool registry as a `DynamicSubAgentTool`.
+
+**Step 9 — test in chat.**
+
+Open `/chat`, send "Show me your credit card offers" — the Planner should call `card_offer`, the sub-agent fetches the offers, and the chat replies with the three card descriptions.
+
+##### Routing caveat
+
+For a fresh sub-agent to actually get called, the Planner needs to choose `tool_search` over its default behaviour. The Planner's system prompt currently scopes itself to banking operations and may decline off-domain topics outright. If your new agent's domain isn't in the Planner's prompt sandbox, either:
+
+- Set the agent's `always_load=true` (Settings tab → Always-load checkbox) so it's bound on every turn — verified-working short cut at the cost of a few tokens per turn.
+- Or update the Planner's system prompt to include your domain. Bigger change, out of scope of agent-authoring.
 
 #### Way B — drop a JSON file in `app/agents/templates/` (the seed path)
 
