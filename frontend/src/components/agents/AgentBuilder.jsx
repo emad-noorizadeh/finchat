@@ -148,6 +148,8 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
   // node object directly here caused stale-snapshot bugs where dropdowns
   // appeared "uneditable" because the panel re-rendered with the old data.
   const [selectedNodeId, setSelectedNodeId] = useState(null)
+  // Edges are exclusive with nodes — selecting one clears the other.
+  const [selectedEdgeId, setSelectedEdgeId] = useState(null)
   const [settingsTab, setSettingsTab] = useState('general')
   const [loading, setLoading] = useState(false)
   const [patterns, setPatterns] = useState([])
@@ -267,6 +269,9 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
   // sees the latest data (no stale snapshot).
   const selectedNode = selectedNodeId
     ? (form.graph_definition?.nodes || []).find((n) => n.id === selectedNodeId) || null
+    : null
+  const selectedEdge = selectedEdgeId
+    ? (form.graph_definition?.edges || []).find((e) => (e.id || `e_${(form.graph_definition?.edges || []).indexOf(e)}`) === selectedEdgeId) || null
     : null
 
   // The backend's AgentUpsertRequest wants a compact payload centred on
@@ -584,13 +589,14 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
               key={`${form.name}-${form.channel}`}
               graphDef={form.graph_definition}
               onChange={handleGraphChange}
-              onNodeSelect={(node) => { setSelectedNodeId(node?.id || null) }}
+              onNodeSelect={(node) => { setSelectedNodeId(node?.id || null); if (node) setSelectedEdgeId(null) }}
+              onEdgeSelect={(edgeId) => { setSelectedEdgeId(edgeId); if (edgeId) setSelectedNodeId(null) }}
             />
           </div>
         )}
 
         {/* Right-panel reopen button */}
-        {selectedNode && rightCollapsed && panelFullscreen !== 'left' && (
+        {(selectedNode || selectedEdge) && rightCollapsed && panelFullscreen !== 'left' && (
           <button
             onClick={() => setRightCollapsed(false)}
             title="Show node properties"
@@ -601,7 +607,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
         )}
 
         {/* Right resize handle */}
-        {selectedNode && !rightCollapsed && !panelFullscreen && (
+        {(selectedNode || selectedEdge) && !rightCollapsed && !panelFullscreen && (
           <div
             onMouseDown={handleMouseDown('right')}
             className="w-1 hover:w-1.5 bg-transparent hover:bg-blue-400 cursor-col-resize flex-shrink-0 transition-colors"
@@ -609,7 +615,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
         )}
 
         {/* Right: Node properties */}
-        {selectedNode && !rightCollapsed && panelFullscreen !== 'left' && (
+        {(selectedNode || selectedEdge) && !rightCollapsed && panelFullscreen !== 'left' && (
           <div
             className="bg-white border-l border-gray-200 overflow-hidden flex-shrink-0 relative"
             style={{ width: panelFullscreen === 'right' ? '100%' : rightWidth }}
@@ -632,6 +638,8 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
             </div>
             <NodePropertiesPanel
               node={selectedNode}
+              edge={selectedEdge}
+              onEdgeDeselect={() => setSelectedEdgeId(null)}
               allNodes={form.graph_definition.nodes}
               allEdges={form.graph_definition.edges}
               agentName={form.name}

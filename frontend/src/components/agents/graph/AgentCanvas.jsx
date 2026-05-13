@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import ReactFlow, { Background, Controls, MarkerType, addEdge, useNodesState, useEdgesState } from 'reactflow'
+import ReactFlow, { Background, Controls, MarkerType, addEdge, reconnectEdge, useNodesState, useEdgesState } from 'reactflow'
 import 'reactflow/dist/style.css'
 
 import {
@@ -257,7 +257,7 @@ function synthesizeRuntimeEdges(nodes, authoredEdges) {
   return synthetic
 }
 
-export default function AgentCanvas({ graphDef, onChange, onNodeSelect }) {
+export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSelect }) {
   const rawNodes = graphDef?.nodes || []
   const rawEdges = graphDef?.edges || []
   const positions = ensurePositions(rawNodes, rawEdges)
@@ -380,6 +380,45 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect }) {
     [onNodesChange, edges, setNodes, syncToParent]
   )
 
+  // ReactFlow fires onEdgesChange for selection, position, AND deletion.
+  // We propagate everything to local edge state, then sync deletions back
+  // to the parent form so saves include the removal.
+  const handleEdgesChange = useCallback(
+    (changes) => {
+      onEdgesChange(changes)
+      const hasDeletion = changes.some((c) => c.type === 'remove')
+      if (hasDeletion) {
+        setTimeout(() => {
+          setEdges((current) => {
+            syncToParent(nodes, current)
+            return current
+          })
+        }, 0)
+      }
+    },
+    [onEdgesChange, nodes, setEdges, syncToParent]
+  )
+
+  const handleEdgeClick = useCallback(
+    (_evt, edge) => {
+      if (edge?.data?.runtime) return  // runtime-synthesized edges aren't authorable
+      onEdgeSelect?.(edge.id)
+      onNodeSelect?.(null)
+    },
+    [onEdgeSelect, onNodeSelect]
+  )
+
+  // Drag an edge's endpoint to a different node to re-route.
+  const handleReconnect = useCallback(
+    (oldEdge, newConnection) => {
+      if (oldEdge?.data?.runtime) return  // can't re-route synthetic edges
+      const updated = reconnectEdge(oldEdge, newConnection, edges)
+      setEdges(updated)
+      syncToParent(nodes, updated)
+    },
+    [edges, nodes, setEdges, syncToParent]
+  )
+
   const handleAddNode = (type) => {
     const id = `${type}_${Date.now()}`
     const newNode = {
@@ -395,6 +434,7 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect }) {
 
   const handleNodeClick = (_, node) => {
     onNodeSelect(node)
+    onEdgeSelect?.(null)
   }
 
   return (
@@ -403,11 +443,15 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect }) {
         nodes={nodes}
         edges={edges}
         onNodesChange={handleNodesChange}
-        onEdgesChange={onEdgesChange}
+        onEdgesChange={handleEdgesChange}
         onConnect={onConnect}
         onNodeClick={handleNodeClick}
-        onPaneClick={() => onNodeSelect(null)}
+        onEdgeClick={handleEdgeClick}
+        onReconnect={handleReconnect}
+        onPaneClick={() => { onNodeSelect(null); onEdgeSelect?.(null) }}
         nodeTypes={nodeTypes}
+        edgesUpdatable
+        deleteKeyCode={['Backspace', 'Delete']}
         fitView
         className="bg-gray-50"
       >

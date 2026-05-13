@@ -574,13 +574,81 @@ function ResponseNodeEditor({ data, update }) {
 }
 
 
+// --- Edge editor ---
+
+function EdgeEditor({ edge, allEdges, allNodes, onEdgesUpdate, onClose }) {
+  const idx = (allEdges || []).findIndex((e) => e.id === edge.id)
+  const total = (allEdges || []).length
+  const sourceNode = (allNodes || []).find((n) => n.id === edge.source)
+  const targetNode = (allNodes || []).find((n) => n.id === edge.target)
+
+  const updateField = (field, value) => {
+    const next = (allEdges || []).map((e) => e.id === edge.id ? { ...e, [field]: value } : e)
+    onEdgesUpdate?.(next)
+  }
+  const reorder = (delta) => {
+    const j = idx + delta
+    if (j < 0 || j >= total) return
+    const next = (allEdges || []).slice()
+    ;[next[idx], next[j]] = [next[j], next[idx]]
+    onEdgesUpdate?.(next)
+  }
+  const deleteEdge = () => {
+    if (!confirm('Delete this edge?')) return
+    const next = (allEdges || []).filter((e) => e.id !== edge.id)
+    onEdgesUpdate?.(next)
+    onClose?.()
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="text-[11px] text-gray-500 space-y-1">
+        <div><span className="font-medium text-gray-700">From:</span> {sourceNode?.id} <span className="text-gray-400">({sourceNode?.type})</span></div>
+        <div><span className="font-medium text-gray-700">To:</span> {targetNode?.id} <span className="text-gray-400">({targetNode?.type})</span></div>
+        <div><span className="font-medium text-gray-700">Order:</span> #{idx} of {total} — lower indexes evaluate first</div>
+      </div>
+      <TextField label="Predicate (DSL — see docs Part 4.1)"
+        value={edge.predicate || ''}
+        onChange={(v) => updateField('predicate', v || null)}
+        placeholder='has(variables.X) && variables.X != "Y"' multiline />
+      <TextField label="Label (optional — shown on the edge)"
+        value={edge.label || ''}
+        onChange={(v) => updateField('label', v || null)}
+        placeholder="leave blank to show the predicate" />
+      <div className="flex items-center gap-2 pt-2">
+        <button onClick={() => reorder(-1)} disabled={idx <= 0}
+          className="px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed">↑ move up</button>
+        <button onClick={() => reorder(1)} disabled={idx >= total - 1}
+          className="px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed">↓ move down</button>
+        <button onClick={deleteEdge}
+          className="ml-auto px-2 py-1 text-xs border border-rose-200 text-rose-700 rounded hover:bg-rose-50">Delete edge</button>
+      </div>
+      <p className="text-[11px] text-gray-400 italic pt-2 border-t border-gray-100">
+        Tip: drag this edge's endpoint to a different node to re-route, or press <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-[10px]">Delete</kbd> with the edge selected.
+      </p>
+    </div>
+  )
+}
+
+
 // --- Main panel ---
 
-export default function NodePropertiesPanel({ node, allNodes, allEdges, agentName, onUpdate, onEdgesUpdate }) {
+export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNodes, allEdges, agentName, onUpdate, onEdgesUpdate }) {
+  if (edge) {
+    return (
+      <div className="p-4 space-y-4 overflow-y-auto h-full">
+        <div className="space-y-0.5 sticky top-0 bg-white -mx-4 pl-4 pr-20 py-2 border-b border-gray-100 z-10">
+          <div className="text-[10px] uppercase tracking-wide text-gray-400 font-mono">edge</div>
+          <h3 className="text-sm font-semibold text-gray-800 truncate">{edge.id}</h3>
+        </div>
+        <EdgeEditor edge={edge} allEdges={allEdges} allNodes={allNodes} onEdgesUpdate={onEdgesUpdate} onClose={onEdgeDeselect} />
+      </div>
+    )
+  }
   if (!node) {
     return (
       <div className="p-4 text-center">
-        <p className="text-xs text-gray-400 italic">Select a node to edit its properties.</p>
+        <p className="text-xs text-gray-400 italic">Select a node or edge to edit its properties.</p>
       </div>
     )
   }

@@ -124,6 +124,33 @@ You can have both for the same underlying capability. E.g., the Transfer flow:
 - `TransferAgentTool(BaseTool)` is the Planner's entry — "transfer money" intent
 - `TransferOpsTool(AgentTool)` exposes `get_details`, `validate`, `submit` actions that the sub-agent's graph nodes call
 
+#### `AgentTool` scope — per-agent vs. global
+
+Set `agent_name` on the class:
+
+- `agent_name = "transfer"` → only the `transfer` sub-agent's `tool_call_node`s can dispatch it. Most domain tools (Transfer, Refund, CardOffer) follow this pattern.
+- `agent_name = ""` → **global** AgentTool, callable from any sub-agent. The dispatcher (`get_agent_tool` at `tools/agent_tool.py:138-144`) falls back to the global bucket when no agent-scoped match exists, and `list_agent_tools_for(agent)` returns `agent-scoped + globals`. So the Builder's tool dropdown shows globals when you're editing any sub-agent.
+
+Use the global form for shared utilities — currency formatting, generic lookups, anything multiple sub-agents would benefit from. Example skeleton:
+
+```python
+class FormatCurrencyTool(AgentTool):
+    name = "format_currency"
+    agent_name = ""              # global — usable by every sub-agent
+    description = "Format a number as USD currency."
+
+    @action("format", description="Format a number.",
+            params_schema={"type": "object",
+                           "properties": {"amount": {"type": "number"}},
+                           "required": ["amount"]})
+    async def format(self, params, context):
+        return {"formatted": f"${params['amount']:,.2f}"}
+
+register_agent_tool(FormatCurrencyTool())
+```
+
+No other plumbing needed — registration places it in the global bucket and the Builder picks it up automatically.
+
 #### Which node type calls which?
 
 The Agent Builder's tool dropdowns are filtered accordingly — getting it right at authoring time is easier than debugging "my tool doesn't get called" later.
@@ -195,6 +222,13 @@ Frontend: `frontend/src/components/agents/AgentBuilder.jsx` + `frontend/src/page
 - **Solid grey** = authored edge in your template.
 - **Dashed blue** = loop edge (e.g. `tool_call → dispatch` re-entry).
 - **Dashed orange ("runtime")** = synthetic edge the compiler injects at runtime — e.g. from a condition_node to a `response_node` with the **failure** or **escape** variant. You don't author these; they appear in the canvas so the routing is visible.
+
+##### Editing an edge
+
+- **Click an edge** → the right panel switches to the edge editor: from/to (read-only), predicate (DSL textarea), label, edge order, ↑/↓ reorder buttons, **Delete edge**.
+- **Drag an edge's endpoint** to a different node's handle to **re-route**.
+- **Press `Delete`** with an edge selected to remove it.
+- Runtime-injected (dashed orange) edges are not selectable — they're a visual hint only.
 
 ##### Step-by-step: build the `card_offer` agent
 
