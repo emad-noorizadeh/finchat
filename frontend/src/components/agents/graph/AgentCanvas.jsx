@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import ReactFlow, { Background, Controls, MarkerType, addEdge, reconnectEdge, useNodesState, useEdgesState } from 'reactflow'
 import 'reactflow/dist/style.css'
 
@@ -295,7 +295,9 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSe
       target: e.target,
       sourceHandle,
       targetHandle,
-      data: { predicate: e.predicate, priority: e._i ?? 0, runtime: !!e._runtime },
+      // userLabel preserved in data so syncToParent can persist it without
+      // round-tripping the auto-computed display string.
+      data: { predicate: e.predicate, priority: e._i ?? 0, runtime: !!e._runtime, userLabel: e.label || null },
       type: 'smoothstep',
       animated: !e._runtime,
       labelStyle: { fontSize: 10, fill: e._runtime ? '#d97706' : '#6b7280', fontWeight: 500 },
@@ -321,6 +323,53 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSe
     ...runtimeRaw.map(toReactFlowEdge),
   ])
 
+
+  // Re-sync canvas internal state when graphDef changes externally (e.g. the
+  // user edited a predicate / label / node data via the right panel). Without
+  // this, useEdgesState/useNodesState only read graphDef once at mount and
+  // panel edits never reach the canvas — predicates appear unchanged on the
+  // edge labels even though they ARE saved to form state.
+  //
+  // We compare a "authored fingerprint" of the incoming graphDef against the
+  // current internal state; if they match (i.e. the change was OUR change
+  // echoing back via syncToParent), do nothing — that avoids a render loop.
+  const authoredFingerprint = (graphDef?.edges || [])
+    .map((e, i) => `${e.id || `e_${i}`}|${e.source}|${e.target}|${e.predicate || ''}|${e.label || ''}`)
+    .join('\n')
+  const nodeFingerprint = (graphDef?.nodes || [])
+    .map((n) => `${n.id}|${n.type}|${JSON.stringify(n.data || {})}`)
+    .join('\n')
+  const lastSyncedFingerprint = useRef({ edges: '', nodes: '' })
+
+  useEffect(() => {
+    if (lastSyncedFingerprint.current.edges === authoredFingerprint) return
+    lastSyncedFingerprint.current.edges = authoredFingerprint
+    // Re-derive edges (preserving handle picking + runtime overlays).
+    const nextAuthored = (graphDef?.edges || []).map((e, i) => ({
+      id: e.id || `e_${i}`, source: e.source, target: e.target,
+      predicate: e.predicate, label: e.label, _i: i,
+    }))
+    const nextRuntime = synthesizeRuntimeEdges(graphDef?.nodes || [], graphDef?.edges || [])
+      .map((e) => ({ ...e, _runtime: true }))
+    setEdges([...nextAuthored.map(toReactFlowEdge), ...nextRuntime.map(toReactFlowEdge)])
+  }, [authoredFingerprint])
+
+  useEffect(() => {
+    if (lastSyncedFingerprint.current.nodes === nodeFingerprint) return
+    lastSyncedFingerprint.current.nodes = nodeFingerprint
+    setNodes((current) => {
+      // Preserve current positions (drag-set in the canvas) when applying
+      // upstream data changes; the panel never changes positions.
+      const posById = new Map(current.map((n) => [n.id, n.position]))
+      return (graphDef?.nodes || []).map((n, i) => ({
+        id: n.id,
+        type: n.type,
+        position: posById.get(n.id) || positions[i] || { x: 250, y: 40 },
+        data: n.data || {},
+      }))
+    })
+  }, [nodeFingerprint])
+
   const syncToParent = useCallback(
     (n, e) => {
       onChange({
@@ -332,6 +381,13 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSe
         })),
         // Runtime-synthesised edges (escape / retry) live in the UI only;
         // don't echo them back into the template.
+        //
+        // Edge.label here is the COMPUTED display label (`[1] foo…`) when
+        // the user hasn't set their own. We persist only user-authored
+        // labels — stored on edge.data.userLabel — so that subsequent
+        // re-derives recompute the display from the latest predicate.
+        // Without this round-trip stripping, the stale computed label
+        // would shadow the new predicate-derived label.
         edges: e
           .filter((edge) => !edge.data?.runtime)
           .map((edge) => ({
@@ -339,7 +395,7 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSe
             source: edge.source,
             target: edge.target,
             predicate: edge.data?.predicate || null,
-            label: edge.label,
+            label: edge.data?.userLabel || null,
           })),
       })
     },
