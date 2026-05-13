@@ -143,7 +143,11 @@ const DEFAULT_GRAPH = buildDefaultGraph()
 export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
   const [tools, setTools] = useState([])
   const [saving, setSaving] = useState(false)
-  const [selectedNode, setSelectedNode] = useState(null)
+  // Store only the id — derive the live node from form.graph_definition each
+  // render so edits made via the panel are reflected immediately. Storing the
+  // node object directly here caused stale-snapshot bugs where dropdowns
+  // appeared "uneditable" because the panel re-rendered with the old data.
+  const [selectedNodeId, setSelectedNodeId] = useState(null)
   const [settingsTab, setSettingsTab] = useState('general')
   const [loading, setLoading] = useState(false)
   const [patterns, setPatterns] = useState([])
@@ -258,6 +262,12 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
       return { ...f, graph_definition: { ...f.graph_definition, nodes: updatedNodes } }
     })
   }
+
+  // Derive the currently-selected node from form state so the panel always
+  // sees the latest data (no stale snapshot).
+  const selectedNode = selectedNodeId
+    ? (form.graph_definition?.nodes || []).find((n) => n.id === selectedNodeId) || null
+    : null
 
   // The backend's AgentUpsertRequest wants a compact payload centred on
   // graph_definition + governance flags. The other "classic" fields
@@ -495,7 +505,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
             {settingsTab === 'prompt' && (
               <PromptsOverview
                 nodes={form.graph_definition?.nodes || []}
-                onOpenNode={(n) => setSelectedNode({ id: n.id, type: n.type, data: n.data })}
+                onOpenNode={(n) => setSelectedNodeId(n.id)}
               />
             )}
 
@@ -574,7 +584,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
               key={`${form.name}-${form.channel}`}
               graphDef={form.graph_definition}
               onChange={handleGraphChange}
-              onNodeSelect={(node) => { setSelectedNode(node) }}
+              onNodeSelect={(node) => { setSelectedNodeId(node?.id || null) }}
             />
           </div>
         )}
