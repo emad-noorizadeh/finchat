@@ -58,6 +58,7 @@ class SubAgentTemplate(SQLModel, table=True):
     # tool_search and invoke it.
     description: str = ""    # shown to the LLM as the tool's description
     search_hint: str = ""    # used by tool_search's weighted-match ranking
+    always_load: bool = False    # bind to every turn vs. surface via tool_search
 
     # Auditing.
     created_by: str = ""

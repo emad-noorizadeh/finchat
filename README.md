@@ -14,6 +14,24 @@ frontend.
   and the 4-rule Presenter engine.
 - [`backend/docs/transfer_flow.md`](./backend/docs/transfer_flow.md) — the
   Transfer sub-agent walkthrough (applies to Refund by analogy).
+- [`backend/docs/extending_tools_and_agents.md`](./backend/docs/extending_tools_and_agents.md)
+  — how to add tools, agents, and widgets; the DSLs inside templates.
+- [`backend/docs/deploy_runbook.md`](./backend/docs/deploy_runbook.md) —
+  how to back up, deploy, run migrations, and recover. Read this before
+  your first prod deploy.
+
+## Migrations & deploys
+
+Schema is managed by Alembic. After pulling main, sync your local DB:
+
+```bash
+cd backend && source .venv/bin/activate
+./scripts/migrate.sh
+```
+
+For prod deploys with schema changes, follow
+[`backend/docs/deploy_runbook.md`](./backend/docs/deploy_runbook.md) —
+**never deploy a migration release without backing up first**.
 
 ## Prerequisites
 

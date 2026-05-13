@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import create_db_and_tables
+from app.database import run_migrations
 from app.log import LoggingMiddleware, setup_logging
 from app.models.chat import ChatSession, Message, MemoryFact  # noqa: ensure tables created
 from app.models.file import File  # noqa: ensure table created
@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
         from app.services.llm_service import startup_check
         await startup_check()
 
-    create_db_and_tables()
+    run_migrations()
 
     # Initialize tool registry
     from app.tools import init_tools
@@ -134,8 +134,9 @@ async def reset_db():
     from app.services.transaction_service import _transaction_data
     _transaction_data.clear()
 
-    # Recreate tables
-    create_db_and_tables()
+    # Recreate tables via alembic so the fresh DB starts at the current head
+    # (with alembic_version populated).
+    run_migrations()
 
     # Re-seed agents
     from app.agents import init_agents, _AGENTS, _AGENT_NAMES

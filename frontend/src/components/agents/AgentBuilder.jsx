@@ -196,6 +196,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
     display_name: '',
     description: '',
     search_hint: '',
+    always_load: false,
     system_prompt: '',
     tool_names: [],
     constraints: { require_confirmation: false },
@@ -221,6 +222,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
           display_name: d.display_name || '',
           description: d.description || '',
           search_hint: d.search_hint || '',
+          always_load: d.always_load || false,
           system_prompt: d.system_prompt || '',
           tool_names: d.tools || [],
           constraints: {},
@@ -271,6 +273,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
       display_name: form.display_name,
       description: form.description || "",
       search_hint: form.search_hint || "",
+      always_load: !!form.always_load,
       graph_definition: form.graph_definition,
       supported_channels: form.supported_channels?.length ? form.supported_channels : [form.channel],
       is_regulated: !!form.is_regulated,
@@ -534,6 +537,20 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
                     onChange={(e) => setField('constraints', { ...form.constraints, require_confirmation: e.target.checked })}
                   />
                   <span className="text-gray-700">Require confirmation</span>
+                </label>
+                <label className="flex items-start gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={form.always_load}
+                    onChange={(e) => setField('always_load', e.target.checked)}
+                  />
+                  <span className="text-gray-700">
+                    Always-load tool
+                    <span className="block text-xs text-gray-500">
+                      Bind to every LLM turn. Uses tokens on every chat — prefer deferred unless the agent is called constantly.
+                    </span>
+                  </span>
                 </label>
               </>
             )}

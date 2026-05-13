@@ -106,15 +106,17 @@ def upsert_template(
     source: str = "user",
     description: str = "",
     search_hint: str = "",
+    always_load: bool = False,
 ) -> SubAgentTemplate:
     """Validate + persist a template. Returns the saved row.
 
     Raises TemplateValidationError if validation fails. Raises PermissionError
     if the existing row is locked_for_business_user_edit.
 
-    `description` and `search_hint` are template-metadata carried alongside
-    the graph — used by DynamicSubAgentTool to make the agent discoverable
-    from the main orchestrator's Planner.
+    `description`, `search_hint`, and `always_load` are template-metadata
+    carried alongside the graph — used by DynamicSubAgentTool to make the
+    agent discoverable from the main orchestrator's Planner, and to choose
+    whether the tool is bound on every turn vs. surfaced via tool_search.
     """
     loaded = load_template(raw)
 
@@ -132,6 +134,7 @@ def upsert_template(
             "display_name": loaded.display_name,
             "description": description,
             "search_hint": search_hint,
+            "always_load": always_load,
             "schema_version": loaded.schema_version,
             "hash": loaded.hash,
             "is_regulated": loaded.is_regulated,
@@ -233,10 +236,17 @@ def seed_from_files(template_dir: Path) -> int:
                 if existing and existing.hash == loaded.hash:
                     continue  # already in sync
 
+                # Pull LLM-facing metadata from the JSON file so seeded
+                # templates are fully self-describing without a follow-up
+                # Builder-UI edit. Existing user-edited rows are skipped
+                # above (source='user' guard).
                 values = {
                     "agent_name": loaded.agent_name,
                     "channel": loaded.channel,
                     "display_name": loaded.display_name,
+                    "description": raw.get("description") or "",
+                    "search_hint": raw.get("search_hint") or "",
+                    "always_load": bool(raw.get("always_load", False)),
                     "schema_version": loaded.schema_version,
                     "hash": loaded.hash,
                     "is_regulated": loaded.is_regulated,

@@ -59,14 +59,10 @@ class DynamicSubAgentTool(BaseTool):
     __init__ time from the SubAgentTemplate row(s) — this keeps the class
     generic and avoids a factory/reflection dance."""
 
-    # Set at __init__; BaseTool class attrs are redeclared for clarity.
+    # All attrs set at __init__ — every flag is per-instance, not per-class.
     name: str = ""
-    always_load: bool = False
-    should_defer: bool = True           # discover via tool_search
     is_read_only: bool = False
     is_concurrency_safe: bool = False   # stateful driver loop
-    channels: tuple = ("chat", "voice")
-    has_glass: bool = True
 
     def __init__(
         self,
@@ -76,6 +72,7 @@ class DynamicSubAgentTool(BaseTool):
         description: str,
         search_hint: str,
         supported_channels: list[str],
+        always_load: bool = False,
     ):
         self.name = agent_name
         self.display_name = display_name
@@ -86,6 +83,9 @@ class DynamicSubAgentTool(BaseTool):
         # Honour the template-declared supported channels.
         self.channels = tuple(supported_channels or ("chat", "voice"))
         self.has_glass = "voice" in self.channels
+        # always_load / should_defer are mutually exclusive — derive should_defer.
+        self.always_load = always_load
+        self.should_defer = not always_load
 
     async def description(self, context=None):
         return self._description
@@ -294,6 +294,7 @@ def refresh_dynamic_sub_agent_tools() -> None:
             "description":       row.description,
             "search_hint":       row.search_hint,
             "supported_channels": set(),
+            "always_load":       False,
         })
         acc["supported_channels"].update(row.supported_channels or [row.channel])
         # Keep the longest non-empty description / search_hint across
@@ -304,6 +305,10 @@ def refresh_dynamic_sub_agent_tools() -> None:
             acc["search_hint"] = row.search_hint
         if row.display_name and not acc["display_name"]:
             acc["display_name"] = row.display_name
+        # OR across channel variants — if any variant requests always-load,
+        # the whole agent is always-load. Matches the user mental model
+        # ("this agent is always loaded") even though storage is per-channel.
+        acc["always_load"] = acc["always_load"] or bool(row.always_load)
 
     # Remove stale dynamic registrations (agents that used to exist but
     # were deleted / disabled since last refresh).
@@ -323,10 +328,11 @@ def refresh_dynamic_sub_agent_tools() -> None:
             description=meta["description"],
             search_hint=meta["search_hint"],
             supported_channels=sorted(meta["supported_channels"]),
+            always_load=meta["always_load"],
         )
         register_tool(tool)
         _DYNAMIC_REGISTERED.add(agent_name)
         logger.info(
-            "[dynamic_sub_agent_registered] agent=%s channels=%s",
-            agent_name, sorted(meta["supported_channels"]),
+            "[dynamic_sub_agent_registered] agent=%s channels=%s always_load=%s",
+            agent_name, sorted(meta["supported_channels"]), meta["always_load"],
         )

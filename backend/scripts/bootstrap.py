@@ -39,16 +39,17 @@ def _warn(msg: str) -> None:
 
 
 def init_database() -> None:
-    print("Initializing SQLite schema...")
-    from app.database import create_db_and_tables
-    # Import the ORM models so SQLModel.metadata sees every table.
+    print("Initializing SQLite schema via alembic...")
+    from app.database import run_migrations
+    # Import the ORM models so SQLModel.metadata sees every table when
+    # alembic env.py loads them (also covered there, redundant for safety).
     from app.models.chat import ChatSession, Message, MemoryFact  # noqa: F401
     from app.models.file import File  # noqa: F401
     from app.models.agent_definition import AgentDefinition  # noqa: F401
     from app.models.widget_instance import WidgetInstance  # noqa: F401
     from app.models.sub_agent_template import SubAgentTemplate  # noqa: F401
-    create_db_and_tables()
-    _ok("SQLite tables created (or already present)")
+    run_migrations()
+    _ok("SQLite schema at alembic head")
 
 
 def init_chroma() -> None:

@@ -139,6 +139,7 @@ def get_agent_variant(agent_name: str, channel: str):
         "description": row.description or "",
         "system_prompt": "",
         "search_hint": row.search_hint or "",
+        "always_load": row.always_load,
         "is_read_only": row.locked_for_business_user_edit,
         "should_defer": True,
         "max_iterations": None,
@@ -165,6 +166,7 @@ class AgentUpsertRequest(BaseModel):
     display_name: str = ""
     description: str = ""
     search_hint: str = ""
+    always_load: bool = False
     channel: str
     graph_definition: dict
     supported_channels: list[str] | None = None
@@ -228,6 +230,7 @@ def create_agent(req: AgentUpsertRequest, request: Request):
             source="user",
             description=req.description,
             search_hint=req.search_hint,
+            always_load=req.always_load,
         )
     except TemplateValidationError as e:
         raise HTTPException(400, f"Template invalid: {e}")
@@ -248,6 +251,7 @@ def update_agent(template_name: str, req: AgentUpsertRequest, request: Request):
             source="user",
             description=req.description,
             search_hint=req.search_hint,
+            always_load=req.always_load,
         )
     except TemplateValidationError as e:
         raise HTTPException(400, f"Template invalid: {e}")
