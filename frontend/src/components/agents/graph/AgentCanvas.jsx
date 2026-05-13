@@ -282,7 +282,12 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSe
   const runtimeRaw = synthesizeRuntimeEdges(rawNodes, rawEdges).map((e) => ({ ...e, _runtime: true }))
 
   const toReactFlowEdge = (e) => {
-    const { sourceHandle, targetHandle } = pickHandles(positionById, e)
+    // Prefer persisted handles when the author has reconnected the edge to
+    // a specific port. Fall back to the layout-driven pickHandles when no
+    // explicit handle is set (i.e. the edge was authored before any drag).
+    const computed = pickHandles(positionById, e)
+    const sourceHandle = e.sourceHandle ?? computed.sourceHandle
+    const targetHandle = e.targetHandle ?? computed.targetHandle
     const isLoop = sourceHandle === 'l-out' || sourceHandle === 'r-out'
       ? (sourceHandle === 'l-out' && targetHandle === 'r-in') ||
         (sourceHandle === 'r-out' && targetHandle === 'l-in' &&
@@ -334,7 +339,7 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSe
   // current internal state; if they match (i.e. the change was OUR change
   // echoing back via syncToParent), do nothing — that avoids a render loop.
   const authoredFingerprint = (graphDef?.edges || [])
-    .map((e, i) => `${e.id || `e_${i}`}|${e.source}|${e.target}|${e.predicate || ''}|${e.label || ''}`)
+    .map((e, i) => `${e.id || `e_${i}`}|${e.source}|${e.target}|${e.sourceHandle || ''}|${e.targetHandle || ''}|${e.predicate || ''}|${e.label || ''}`)
     .join('\n')
   const nodeFingerprint = (graphDef?.nodes || [])
     .map((n) => `${n.id}|${n.type}|${JSON.stringify(n.data || {})}`)
@@ -347,6 +352,7 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSe
     // Re-derive edges (preserving handle picking + runtime overlays).
     const nextAuthored = (graphDef?.edges || []).map((e, i) => ({
       id: e.id || `e_${i}`, source: e.source, target: e.target,
+      sourceHandle: e.sourceHandle, targetHandle: e.targetHandle,
       predicate: e.predicate, label: e.label, _i: i,
     }))
     const nextRuntime = synthesizeRuntimeEdges(graphDef?.nodes || [], graphDef?.edges || [])
@@ -394,6 +400,11 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSe
             id: edge.id,
             source: edge.source,
             target: edge.target,
+            // Persist the handle endpoints so handle-only reconnections
+            // (drag arrowhead from one port to another on the SAME node)
+            // survive save/reload. Backend treats these as opaque UI data.
+            sourceHandle: edge.sourceHandle || null,
+            targetHandle: edge.targetHandle || null,
             predicate: edge.data?.predicate || null,
             label: edge.data?.userLabel || null,
           })),
