@@ -403,22 +403,18 @@ function ToolCallNodeEditor({ data, update, nodeIds, agentName }) {
         <p className="text-[11px] text-gray-500 italic -mt-1">{currentAction.description}</p>
       )}
 
-      <JsonField label="Params (templated — {{variables.X}} is resolved)"
+      <ParamsEditor
+        schema={currentAction?.params_schema}
         value={data.params}
-        onChange={(v) => update('params', v)}
-        placeholder={currentAction?.params_schema ? JSON.stringify(sampleFromSchema(currentAction.params_schema), null, 2) : '{"amount": "{{variables.amount}}"}'} />
-      {currentAction?.params_schema?.properties && (
-        <details className="text-[11px] text-gray-500">
-          <summary className="cursor-pointer select-none">Expected params schema</summary>
-          <pre className="mt-1 p-2 bg-gray-50 border border-gray-200 rounded overflow-x-auto">
-            {JSON.stringify(currentAction.params_schema, null, 2)}
-          </pre>
-        </details>
-      )}
+        onChange={(v) => update('params', v)} />
 
       <TextField label="Output variable" value={data.output_var}
         onChange={(v) => update('output_var', v)}
         placeholder="validation_result" />
+      <OutputSchemaPreview
+        schema={currentAction?.output_schema}
+        outputVar={data.output_var || ''} />
+
       <JsonField label="post_write (state resets on success)"
         value={data.post_write}
         onChange={(v) => update('post_write', v)}
@@ -427,6 +423,205 @@ function ToolCallNodeEditor({ data, update, nodeIds, agentName }) {
         onChange={(v) => update('on_error', v)}
         options={['abort', ...nodeIds]} includeBlank={false} />
     </div>
+  )
+}
+
+
+// --- Params editor: schema-driven form with per-field inputs ---
+//
+// When the action's params_schema declares `properties`, render a typed form
+// instead of a free-form JSON textarea. Each property becomes its own input
+// picked by type (text / number / checkbox / dropdown). Template strings
+// (`{{variables.X}}`) are accepted in any string-typed field — store as a
+// string regardless of declared numeric type.
+//
+// Fallback to JsonField when:
+//   - no schema declared on the action
+//   - additionalProperties: true (free-shape)
+//   - schema has no `properties` (legacy / passthrough actions)
+
+function ParamsEditor({ schema, value, onChange }) {
+  const props = schema?.properties || null
+  const noKnownProps = !props || Object.keys(props).length === 0
+  const allowExtras = schema?.additionalProperties === true
+
+  if (noKnownProps || allowExtras) {
+    return (
+      <div className="space-y-1">
+        <JsonField label="Params (templated — {{variables.X}} is resolved)"
+          value={value || {}}
+          onChange={(v) => onChange(v)}
+          placeholder={schema ? JSON.stringify(sampleFromSchema(schema), null, 2) : '{"amount": "{{variables.amount}}"}'} />
+        {noKnownProps && schema && (
+          <p className="text-[11px] text-gray-400 italic">
+            This action declares no fixed parameters. Use JSON for free-form input.
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  const params = (typeof value === 'object' && value !== null) ? value : {}
+  const required = new Set(schema.required || [])
+
+  const setField = (key, v) => {
+    const next = { ...params }
+    if (v === undefined) delete next[key]
+    else next[key] = v
+    onChange(next)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="text-xs text-gray-600 font-medium">Params (typed inputs from schema)</div>
+      {Object.entries(props).map(([key, spec]) => (
+        <ParamField key={key}
+          name={key}
+          spec={spec}
+          required={required.has(key)}
+          value={params[key]}
+          onChange={(v) => setField(key, v)} />
+      ))}
+    </div>
+  )
+}
+
+// Single param field — picks its rendering by type. Template strings are
+// allowed for every field (so even a `number` field accepts
+// `{{variables.amount}}`). The "T" template toggle lets the author switch
+// between literal-value mode and template-string mode.
+function ParamField({ name, spec, required, value, onChange }) {
+  const declaredType = Array.isArray(spec?.type)
+    ? spec.type.find((t) => t !== 'null')
+    : (spec?.type || 'string')
+  const nullable = spec?.nullable === true || (Array.isArray(spec?.type) && spec.type.includes('null'))
+  const isTemplate = typeof value === 'string' && /\{\{/.test(value)
+  const headerName = `${name}${required ? ' *' : ''}`
+
+  // Enum: dropdown (no template mode — enum values are fixed)
+  if (Array.isArray(spec?.enum) && spec.enum.length) {
+    return (
+      <label className="block">
+        <span className="text-[11px] text-gray-600">{headerName} <span className="text-gray-400">enum</span></span>
+        <select
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
+          className="mt-0.5 w-full px-2 py-1 text-sm border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+        >
+          {!required && <option value="">—</option>}
+          {spec.enum.map((opt) => <option key={String(opt)} value={opt}>{String(opt)}</option>)}
+        </select>
+        {spec.description && <span className="block text-[10px] text-gray-400 italic">{spec.description}</span>}
+      </label>
+    )
+  }
+
+  // Boolean: checkbox (template mode opt-in)
+  if (declaredType === 'boolean' && !isTemplate) {
+    return (
+      <div className="flex items-center justify-between gap-2 py-0.5">
+        <label className="flex items-center gap-2 cursor-pointer flex-1">
+          <input type="checkbox"
+            checked={!!value}
+            onChange={(e) => onChange(e.target.checked)}
+            className="h-3.5 w-3.5" />
+          <span className="text-[11px] text-gray-700">{headerName} <span className="text-gray-400">bool</span></span>
+        </label>
+        <TemplateToggle onSwitch={() => onChange('{{variables.X}}')} />
+      </div>
+    )
+  }
+
+  // Object / array fall back to JSON for THIS field only.
+  if (declaredType === 'object' || declaredType === 'array') {
+    return (
+      <JsonField label={`${headerName} — ${declaredType}`}
+        value={value ?? (declaredType === 'array' ? [] : {})}
+        onChange={onChange} rows={4} />
+    )
+  }
+
+  // Number / integer / string / default → text-style input. Numbers go
+  // through `Number(...)` unless the value looks like a template.
+  const inputType = (declaredType === 'number' || declaredType === 'integer') && !isTemplate ? 'number' : 'text'
+  const onTextChange = (raw) => {
+    if (raw === '') return onChange(nullable ? null : undefined)
+    if (/^\{\{/.test(raw) || inputType === 'text') return onChange(raw)
+    const n = Number(raw)
+    onChange(Number.isFinite(n) ? n : raw)
+  }
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-gray-600">{headerName} <span className="text-gray-400">{declaredType}{isTemplate ? ' (template)' : ''}</span></span>
+        {isTemplate
+          ? <TemplateToggle off onSwitch={() => onChange(declaredType === 'boolean' ? false : (declaredType === 'number' ? 0 : ''))} />
+          : <TemplateToggle onSwitch={() => onChange('{{variables.X}}')} />}
+      </div>
+      <input
+        type={inputType}
+        value={value ?? ''}
+        onChange={(e) => onTextChange(e.target.value)}
+        placeholder={spec?.description || (inputType === 'number' ? '0' : 'value or {{variables.X}}')}
+        className="w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-200"
+      />
+      {spec?.description && <span className="block text-[10px] text-gray-400 italic">{spec.description}</span>}
+    </div>
+  )
+}
+
+function TemplateToggle({ off = false, onSwitch }) {
+  return (
+    <button type="button" onClick={onSwitch}
+      title={off ? 'Switch back to literal value' : 'Use a {{variables.X}} template instead'}
+      className={`text-[10px] px-1.5 py-0.5 rounded border ${off ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
+      {off ? 'literal' : '{{}}'}
+    </button>
+  )
+}
+
+
+// --- Output schema preview: shows what fields the action will return ---
+//
+// Helps the author write `{{variables.<output_var>.<field>}}` references in
+// downstream text_template / widget data_template fields. Each field gets a
+// copy-to-clipboard button that yields the full template token.
+
+function OutputSchemaPreview({ schema, outputVar }) {
+  if (!schema || typeof schema !== 'object') return null
+  const props = schema.properties || {}
+  const keys = Object.keys(props)
+  if (!keys.length) return null
+  const slot = outputVar || '<output_var>'
+
+  const copy = async (text) => {
+    try { await navigator.clipboard.writeText(text) } catch { /* ignore */ }
+  }
+
+  return (
+    <details className="text-[11px] border border-gray-100 rounded bg-gray-50" open>
+      <summary className="cursor-pointer select-none px-2 py-1 font-medium text-gray-600">
+        Returns — click a field to copy its template token
+      </summary>
+      <div className="px-2 py-1.5 space-y-1">
+        {keys.map((k) => {
+          const fieldType = props[k]?.type
+          const token = `{{variables.${slot}.${k}}}`
+          const typeLabel = Array.isArray(fieldType) ? fieldType.join('|') : (fieldType || 'any')
+          return (
+            <button key={k} type="button" onClick={() => copy(token)}
+              className="block w-full text-left px-1.5 py-1 hover:bg-white rounded border border-transparent hover:border-gray-200">
+              <span className="font-mono text-gray-800">{k}</span>
+              <span className="ml-1.5 text-gray-400">{typeLabel}</span>
+              <span className="block font-mono text-[10px] text-blue-700 mt-0.5">{token}</span>
+              {props[k]?.description && (
+                <span className="block text-gray-400 italic mt-0.5">{props[k].description}</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </details>
   )
 }
 
