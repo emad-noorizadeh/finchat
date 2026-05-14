@@ -29,18 +29,23 @@ def build_tool_node_factory(data: dict) -> Callable:
         last = (state.get("messages") or [])[-1] if state.get("messages") else None
         if not isinstance(last, AIMessage) or not getattr(last, "tool_calls", None):
             return {}
-        if tool_caller is None:
-            return {}
 
         tool_messages = []
         for tc in last.tool_calls:
             try:
-                result = await tool_caller(
-                    tool_name=tc["name"],
-                    action=tc.get("args", {}).get("action"),
-                    params=tc.get("args", {}),
-                    state=state,
-                )
+                if tool_caller is not None:
+                    result = await tool_caller(
+                        tool_name=tc["name"],
+                        action=tc.get("args", {}).get("action"),
+                        params=tc.get("args", {}),
+                        state=state,
+                    )
+                else:
+                    result = await _default_tool_caller(
+                        tool_name=tc["name"],
+                        args=tc.get("args") or {},
+                        state=state,
+                    )
                 content = _to_str(result)
             except Exception as e:  # noqa: BLE001
                 content = json.dumps({"error": str(e)})
@@ -52,6 +57,31 @@ def build_tool_node_factory(data: dict) -> Callable:
         return {"messages": tool_messages}
 
     return handler
+
+
+async def _default_tool_caller(*, tool_name: str, args: dict, state: dict):
+    """Fallback used when no per-thread tool_caller was registered (the
+    Dynamic sub-agent path). Looks the tool up in the global registry and
+    dispatches via BaseTool.execute / AgentTool.dispatch as appropriate."""
+    from app.tools import get_tool
+    from app.tools.agent_tool import AgentTool
+
+    tool = get_tool(tool_name)
+    if tool is None:
+        return {"error": f"unknown tool {tool_name!r}"}
+
+    context = {
+        "user_id":    state.get("user_id", ""),
+        "session_id": state.get("session_id", ""),
+        "channel":    state.get("channel", ""),
+    }
+
+    if isinstance(tool, AgentTool):
+        action = (args or {}).get("action") or ""
+        params = {k: v for k, v in (args or {}).items() if k != "action"}
+        return await tool.dispatch(action, params, context)
+
+    return await tool.execute(args or {}, context)
 
 
 def _to_str(result) -> str:

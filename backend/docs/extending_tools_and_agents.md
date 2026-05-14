@@ -166,6 +166,12 @@ So:
 
 If you want a sub-agent to call a `BaseTool` like `knowledge_search`, use the `llm_node` + `tool_node` pattern. The `tool_call_node`'s dropdown intentionally filters BaseTools out — they don't have a `dispatch` surface and would fail at runtime.
 
+**`tool_node` runtime detail** (DB-backed sub-agents only need to know this if they hit a bug). `tool_node` looks for a per-thread `_tool_caller` first (set by hand-coded sub-agents like Transfer). If none is registered — the path used by every `DynamicSubAgentTool` instance — it falls back to a default caller that resolves the tool from the global registry via `get_tool(name)` and dispatches: `AgentTool.dispatch(action, params, context)` if the tool exposes actions, otherwise `BaseTool.execute(args, context)`. See `app/agents/nodes/tool_node.py:_default_tool_caller`. You shouldn't need to think about this; if it breaks, that's where to look.
+
+**`AgentTool` global scope** for cross-sub-agent reuse. An `AgentTool` subclass sets `agent_name = "foo"` to be scoped to that one sub-agent (the default — Transfer/Refund follow this). Set `agent_name = ""` to make it callable from ANY sub-agent's `tool_call_node`. The lookup chain is `(agent_name, tool_name)` first, then `("", tool_name)` as a fallback. `card_offer` is the reference for a globally-scoped AgentTool — `card_advisor`, `card_browser`, and any future card-related sub-agent share it.
+
+**`response_node.text_source`**. When the inner LLM produces the final user-facing text (the `llm_node` + `tool_node` + summarize-`llm_node` pattern), the response_node can pull it directly from the last AIMessage instead of templating a variable. Set `text_source: "last_assistant_message"` on the response_node and omit `text_template`. The `account_qa.chat.json` template is the reference.
+
 ### Schema changes
 
 If your tool / agent / model change touches any column in `backend/app/models/`, you must generate an alembic migration:
@@ -196,7 +202,7 @@ The architecture moved away from class-based sub-agents. **Agents are now JSON t
 
 | Location | Role |
 |---|---|
-| `app/agents/templates/*.json` | File seeds. Imported on first boot against an empty DB. After seeding, the DB is the source of truth (with re-sync rules — see below). |
+| `app/agents/templates/*.json` | Bootstrap seeds. Imported into the DB **only when the table is empty** (fresh install). After bootstrap, the DB is the sole source of truth — boots never re-sync from files. To deploy a content change for a seeded agent (regulated or otherwise), call `POST /api/agents/admin/import-file/{filename}`. See "Boot sequence" below. |
 | `sub_agent_templates` table | Runtime source of truth. |
 | `app/agents/patterns/*.json` | Starter skeletons (`collect_one_slot.json`, `confirm_then_execute.json`) — the Builder lets you clone these into a new graph. |
 
@@ -341,11 +347,17 @@ For a fresh sub-agent to actually get called, the Planner needs to choose `tool_
 
 #### Way B — drop a JSON file in `app/agents/templates/` (the seed path)
 
-`initialize_templates()` at startup calls `seed_from_files()` which:
+`initialize_templates()` at startup calls `bootstrap_from_files()` which:
 
-- Inserts new files as `status='deployed'`, `source='seed'`.
-- **Re-syncs** existing `source='seed'` rows when the file hash changes (so PR edits to regulated templates flow into the DB on next boot).
-- **Never overwrites** `source='user'` rows (business-user edits win over same-name seed files).
+- **Runs once, only when the `sub_agent_templates` table is empty** (fresh install / wiped DB). Inserts every *.json file as `status='deployed'`, `source='seed'`.
+- **Does nothing on subsequent boots**, even if the JSON content changed. The DB is the sole source of truth after bootstrap. No auto-resync — that historical behaviour was removed because it could silently clobber UI edits.
+- To deploy a content change for a seeded agent (regulated or otherwise) after bootstrap, call `POST /api/agents/admin/import-file/{filename}`. That re-applies a single JSON file deliberately and audit-logs the action.
+
+Source-column semantics after this change:
+
+- `source='seed'` — the row was last populated by bootstrap **or** by an explicit admin import. The label tracks "where the canonical content came from".
+- `source='user'` — the row was last written through the Builder UI / `/api/agents` write endpoints. Any UI edit flips a previously-seeded row to `'user'` to keep the label honest.
+- Source is **informational** — it does not affect boot behaviour. The DB always wins on subsequent boots.
 
 ### Are tools and widgets selectable from the Agent Builder UI?
 
@@ -370,10 +382,15 @@ This is the part that trips people up. Walk through it carefully.
                                  GetProfileDataTool, etc.)
                                 These call register_tool() at module import time.
 
-2. initialize_templates()    → seed_from_files() reads every *.json in templates/
-                                and inserts/syncs DB rows.
-                                NO tool registration happens here. Just rows in
-                                sub_agent_templates.
+2. initialize_templates()    → bootstrap_from_files() runs ONLY if the
+                                sub_agent_templates table is empty. On a
+                                fresh install it inserts every *.json in
+                                templates/ as source='seed', status='deployed'.
+                                On any subsequent boot it's a no-op.
+                                Updating a seeded template after bootstrap
+                                requires POST /api/agents/admin/import-file/<f>.
+                                NO tool registration happens here. Just rows
+                                in sub_agent_templates.
 
 3. init_agents()             → does three sub-steps:
 
@@ -437,7 +454,7 @@ You want a simple sub-agent. e.g. `card_lock` — a flow that asks the user whic
 
 **What happens at boot:**
 
-- Step 2: row inserted in `sub_agent_templates`. The seeder reads `description`, `search_hint`, and `always_load` from the JSON file and stores them on the row.
+- Step 2: row inserted in `sub_agent_templates` — but only if the table was empty when the process started (bootstrap). If the DB already has rows from a previous boot, this file is **NOT** auto-loaded; you'd hit `POST /api/agents/admin/import-file/card_lock.chat.json` to apply it. The reader pulls `description`, `search_hint`, and `always_load` from the JSON file in either path.
 - Step 3a: agent registry says "card_lock has chat channel."
 - Step 3c: `DynamicSubAgentTool(name="card_lock", description=..., search_hint=..., always_load=...)` is created, registered in `_REGISTRY`. If `always_load: true` was in the JSON, the tool is bound on every turn; otherwise it's deferred and discoverable via `tool_search`.
 
@@ -536,7 +553,7 @@ Answer: for regulated agents, **the LLM-facing metadata lives in the Python tool
 |---|---|---|---|---|---|
 | **Hand-coded tool** (Transfer, Refund) | Python class `async def description()` method | Python class `search_hint` attribute | Python class `always_load` attribute | `init_tools()` registers the class; `to_openai_schema()` builds the OpenAI function spec from the class. | **No.** Template columns are blank and ignored. |
 | **Non-regulated, authored in Builder UI** | `description` column on the DB row (typed in UI) | `search_hint` column on the DB row (typed in UI) | `always_load` column on the DB row (Settings tab checkbox) | `refresh_dynamic_sub_agent_tools()` reads the row, constructs a `DynamicSubAgentTool(description=..., search_hint=..., always_load=...)`, and registers it. | **Yes** — primary source. |
-| **Non-regulated, seeded from JSON** | Top-level `description` key in the JSON file | Top-level `search_hint` key in the JSON file | Top-level `always_load` key in the JSON file | Same path as UI-authored — `seed_from_files()` writes the JSON's keys to the DB row at boot, then `refresh_dynamic_sub_agent_tools()` picks them up. | **Yes** — populated by the seeder from the JSON. |
+| **Non-regulated, seeded from JSON** | Top-level `description` key in the JSON file | Top-level `search_hint` key in the JSON file | Top-level `always_load` key in the JSON file | Same path as UI-authored — `bootstrap_from_files()` (fresh install) or `import_template_file()` (admin import) writes the JSON's keys to the DB row, then `refresh_dynamic_sub_agent_tools()` picks them up. | **Yes** — populated from the JSON at bootstrap or admin import. |
 
 ### Why the transfer template has no description (and why that's correct)
 
@@ -557,13 +574,13 @@ For `transfer_money` specifically:
 
 ### Seed JSONs are fully self-describing
 
-When you drop a non-regulated template into `app/agents/templates/`, the seeder reads three top-level keys from the JSON file and writes them to the DB row:
+When you drop a non-regulated template into `app/agents/templates/`, three top-level keys are read from the JSON file and written to the DB row at bootstrap (or admin import):
 
 - `description` — what the LLM Planner sees
 - `search_hint` — keywords for `tool_search` weighted matching
 - `always_load` — bind to every turn (`true`) vs. surface via `tool_search` (`false`, the default)
 
-So a non-regulated JSON template is a complete agent definition. No follow-up Builder-UI edit is needed for the LLM-facing surface — though you can still edit in the UI afterwards (user edits win over re-seeds, see `seed_from_files()` source='user' guard).
+So a non-regulated JSON template is a complete agent definition. No follow-up Builder-UI edit is needed for the LLM-facing surface — though you can still edit in the UI afterwards. A UI edit flips the row's `source` from `'seed'` to `'user'`, and that's where it stays; the JSON file no longer affects the row until you deliberately call `POST /api/agents/admin/import-file/<filename>` (which forces source back to `'seed'`).
 
 ---
 
@@ -719,7 +736,102 @@ Used for deterministic field extraction from user utterances. Lives in `app/agen
 
 **Rule:** keep parsers pure and deterministic. If you need anything fuzzy (intent classification, fuzzy matching), use `mode: llm` with an `output_schema` instead. Don't reach for an LLM inside a regex parser.
 
-### 4.6 Where the rules come from — single source of truth
+### 4.6 The `interrupt_node` lifecycle — pause, resume, and what the LLM does NOT see
+
+`interrupt_node` is the only node type that suspends the conversation and waits for the user. It is the right tool when a sub-agent needs to ask a clarifying question mid-flow (e.g. "What matters most — travel, cashback, or gas?"). It is the WRONG tool for asking confirmation on a side-effecting action — use a `confirmation_request` widget for that.
+
+The mechanics are deliberately unlike LangGraph's built-in tool-level interrupt, so read this section before authoring a flow that uses one.
+
+#### What the node itself does
+
+`app/agents/nodes/interrupt_node.py`:
+
+1. Resolves `prompt_template` against state (`{{var}}` substitution).
+2. Picks the channel-appropriate template: `voice_prompt_template` if `channel == "voice"`, otherwise `prompt_template`. The Agent Builder hides the voice field when the template's `supported_channels` is chat-only.
+3. Writes `variables._pending_interrupt_payload = {kind: "slot_prompt", prompt, channel, targets_slot}` and sets `last_prompted_slot`.
+4. Returns. The compiler short-circuits every interrupt_node's outgoing edge to `END`, so **the inner graph terminates here**. The node itself does NOT call LangGraph's `interrupt()`.
+
+#### Why the node doesn't call `interrupt()` directly
+
+The inner graph has no checkpointer (only the outer orchestrator does). Calling LangGraph's `interrupt()` inside an unchecked-pointed graph raises with no replay context. So the design lifts the interrupt one level up: the inner graph parks a payload on state, terminates, and the outer driver does the actual pause.
+
+#### The outer driver loop
+
+`app/tools/dynamic_sub_agent_tool.py:153-168`:
+
+```python
+while _has_pending_interrupt(inner_state):
+    payload, inner_state = _consume_pending(inner_state)
+    save_inner_state(thread_id, inner_state)
+
+    resume_value = interrupt(payload)              # ← THIS is the real pause
+    user_text = _coerce_user_text(resume_value)    # extracts data.utterance
+
+    inner_state = load_inner_state(thread_id) or inner_state
+    inner_state["messages"].append(HumanMessage(content=user_text))
+    escape_update = apply_resume_escape(inner_state, user_text)
+    ...
+    inner_state = await _run_inner_once(graph, inner_state, inner_config)
+```
+
+`interrupt(payload)` lives inside `DynamicSubAgentTool.execute()`, which is called from the orchestrator's `tool_execute` node. So the pause happens **inside the sub-agent's tool call from the orchestrator's perspective** — the outer checkpoint captures the suspended generator and can replay later.
+
+#### On resume — the Planner is NOT consulted
+
+This is the part most people get wrong. When the chat router receives `req.type == "resume"`:
+
+```python
+# routers/chat.py:240-241
+async for event in compiled.astream_events(
+    Command(resume=req.data), config=config, version="v2"
+):
+```
+
+`Command(resume=...)` returns directly into the paused `interrupt(payload)` call inside the sub-agent's driver loop. The orchestrator graph **does not re-enter `planner_llm`**. There is no LLM call between the user's reply landing on the server and the inner graph re-running.
+
+What that means in practice:
+
+* The Planner never sees the user's reply. No contextualization, no rewording, no second look at the chat history.
+* The raw utterance is appended to the inner sub-agent's `messages` as a `HumanMessage` verbatim.
+* The sub-agent's `parse_node` is what reads it. Its system prompt must be narrow enough that the raw reply (often a fragment like "I drive a lot for work") is enough to extract the slot.
+
+If you need richer context inside parse_node, surface it as a `{{variable}}` in the system_prompt (template substitution is supported) — don't expect the Planner to brief the sub-agent on resume, because it won't be running.
+
+#### Sub-agent state during the pause
+
+Everything the inner graph accumulated is preserved across the interrupt:
+
+* `inner_state["variables"]` — slot values parsed in earlier runs survive.
+* `inner_state["messages"]` — full inner-graph conversation (the initial HumanMessage from the Planner's `message` arg + any AIMessages from earlier nodes + new HumanMessages on each resume).
+* `inner_state["last_prompted_slot"]` — which slot the user is replying to.
+
+The outer driver re-invokes the inner graph **from `entry_node`** on each resume, not from the interrupt_node. The inner graph's pure nodes are expected to be idempotent: parse_node re-runs, but `{{variables.X}}` reads carry over, so previously-parsed values aren't re-asked. The dispatcher (condition_node) reads the augmented state and routes to a different branch (e.g. from `ask` to `respond_gas`).
+
+The orchestrator's outer session history (other turns, other sub-agent calls, profile data) is **NOT** in `inner_state`. Sub-agents are sandboxed to the slice of conversation the Planner handed them via the initial `message` arg, plus subsequent resume utterances.
+
+#### Channel handling and persistence
+
+* The frontend renders chat `slot_prompt` events as a regular assistant text message. The Voice channel substitutes a TTS-friendly `voice_prompt_template`. The Agent Builder hides the voice field when the template is chat-only.
+* The chat router persists the prompt as an assistant message with `message_type="slot_prompt"` before yielding the SSE `interrupt_event`. On page reload, the prompt is restored from DB and the frontend re-arms a `pendingResume` flag by scanning the last assistant message. The next user message then POSTs with `type: "resume"`.
+* Sub-agents that emit a `confirmation_request` widget (e.g. transfer) go through a different path — the widget itself is persisted, and resume is driven by the user clicking Confirm/Cancel. Don't double-handle that case with an interrupt_node.
+
+#### Edge cases and gotchas
+
+* **Ambiguous reply → silent re-prompt.** If parse_node returns `null` for the slot (the LLM couldn't map the reply), condition_node will typically dispatch back to the same `ask` node and the interrupt fires again. This is by design — natural retry — but it can feel like a loop if your parse_node prompt is too strict. Loosen the slot-extraction examples first; don't add error branches.
+* **Escape classifier (`apply_resume_escape`).** Before re-running the inner graph, the driver classifies the resume utterance for abort / topic-change intent. If it's "cancel" or a topic switch, `_escape_kind` is set on state — your sub-agent can route to a graceful exit branch by checking `variables._escape_kind == 'abort'`. Default behaviour returns the user to the orchestrator with a short acknowledgment.
+* **Multiple sequential interrupts.** The driver loop is a `while _has_pending_interrupt(...)` — a sub-agent can prompt for several slots one at a time, each pause yielding back to the outer checkpoint. Each resume re-runs the inner graph from `entry_node`. Cost: parse_node runs N times for N slots; design accordingly.
+* **No `interrupt_node` for tool dispatch.** If you want to pause for a confirmation BEFORE a tool fires, prefer the tool's own interrupt + widget pattern (Transfer/Refund) rather than wedging an interrupt_node in front of it.
+* **Don't expect the Planner to remember context the sub-agent collected.** When the sub-agent returns to the orchestrator, the only thing flowing back is the `ToolResult` (text, widget, or slot_writes). If you want long-lived state, write it to the orchestrator's `variables` via `return_mode: "to_presenter"` with `slot_writes`.
+
+#### What to do when authoring an interrupt_node
+
+1. Write a tight `prompt_template` with one clear question. Add a `voice_prompt_template` only if the template supports voice.
+2. Set `targets_slot` to the variable name parse_node will write on the next resume run.
+3. Make sure parse_node's system_prompt has examples that cover the kinds of replies users will give to YOUR prompt — fragments, full sentences, edge phrasings.
+4. Ensure the condition_node downstream of parse_node has a `predicate: "true"` fallback edge back to your `ask` node, so a `null` extraction loops cleanly.
+5. Test in the Builder: `card_advisor.chat.json` is the reference flow (parse → dispatch → ask → resume → respond_*).
+
+### 4.7 Where the rules come from — single source of truth
 
 There is no separate "DSL spec doc." Each DSL is documented in the file that owns it:
 
@@ -730,11 +842,12 @@ There is no separate "DSL spec doc." Each DSL is documented in the file that own
 | `parse_node` schema (regex / llm modes, writes shape) | `app/agents/nodes/parse_node.py` (module docstring) |
 | `tool_call_node` schema (post_write rules) | `app/agents/nodes/tool_call_node.py` (module docstring) |
 | `response_node` (return modes, slot_writes) | `app/agents/nodes/response_node.py` (module docstring) |
+| `interrupt_node` mechanics and resume contract | `app/agents/nodes/interrupt_node.py` + `app/tools/dynamic_sub_agent_tool.py:153-168` |
 | Template-level validation rules | `app/agents/template_loader.py` (`_validate_structure`, `_validate_semantics`) |
 
 The Builder UI surfaces some of this (it injects defaults and rejects obvious malformed graphs), but the validator in `template_loader.py` is the gate. Anything that doesn't pass validation never registers as an agent — for regulated templates it's a hard error, for non-regulated it's the same hard error since both go through `load_template()`.
 
-### 4.7 Quick rules of thumb for the team
+### 4.8 Quick rules of thumb for the team
 
 1. **Read the source-of-truth file before authoring.** The docstring at the top of `predicates.py`, `templates.py`, or each node file IS the spec.
 2. **Predicates: prefer `==`/`!=` for type tags, `has()` / `is_empty()` for slot-presence checks.** The runtime is None-safe — exploit it for type-tag dispatch, but always guard arithmetic and bare-path reads.
@@ -743,6 +856,7 @@ The Builder UI surfaces some of this (it injects defaults and rejects obvious ma
 5. **Regulated `llm_node` requires `output_schema`.** No exceptions — the validator will refuse to load.
 6. **Watch boot logs for `[template_load_warning]`.** They're real bugs roughly 80% of the time. Investigate before merge.
 7. **Test predicates in a REPL** before pushing a template, or paste the JSON into the Builder UI — both will fail-fast on parse errors.
+8. **`interrupt_node` does not re-run the Planner on resume.** The user's reply lands raw in the sub-agent's `parse_node`. Make the parse_node prompt tolerant of fragments and provide examples that match how users actually reply to YOUR question. See 4.6.
 
 ---
 

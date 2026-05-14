@@ -642,23 +642,45 @@ function sampleFromSchema(schema) {
 
 // --- Interrupt node ---
 
-function InterruptNodeEditor({ data, update, slotNames }) {
+function InterruptNodeEditor({ data, update, slotNames, supportedChannels }) {
+  const channels = Array.isArray(supportedChannels) && supportedChannels.length
+    ? supportedChannels
+    : ['chat']
+  const showChat = channels.includes('chat')
+  const showVoice = channels.includes('voice')
+  const multiChannel = showChat && showVoice
+
   return (
     <div className="space-y-3">
       <TextField label="Node label" value={data.label} onChange={(v) => update('label', v)} />
-      <TextField label="Prompt (chat)" value={data.prompt_template}
-        onChange={(v) => update('prompt_template', v)}
-        placeholder="How much would you like to transfer?" multiline />
-      <TextField label="Voice prompt (optional override)" value={data.voice_prompt_template}
-        onChange={(v) => update('voice_prompt_template', v)}
-        placeholder="How much should I transfer?" multiline />
+
+      {showChat && (
+        <TextField label={multiChannel ? 'Prompt (chat)' : 'Prompt'}
+          value={data.prompt_template}
+          onChange={(v) => update('prompt_template', v)}
+          placeholder="What matters most to you in a card?" multiline />
+      )}
+      {showVoice && (
+        <TextField label={multiChannel ? 'Voice prompt (optional override)' : 'Voice prompt'}
+          value={data.voice_prompt_template}
+          onChange={(v) => update('voice_prompt_template', v)}
+          placeholder="What matters most to you?" multiline />
+      )}
+      {!showChat && !showVoice && (
+        <p className="text-[11px] text-amber-600 italic">
+          This template declares no supported channels — please set at least one in General settings.
+        </p>
+      )}
+
       <SelectField label="Targets slot (for retry tracking)"
         value={data.targets_slot}
         onChange={(v) => update('targets_slot', v || null)}
         options={['', ...slotNames]} />
       <p className="text-[11px] text-gray-400 italic">
-        Emits a pause. The outer graph waits for the user's reply, then
-        re-enters the sub-agent with the reply appended to messages.
+        Emits the prompt to the user, then pauses the inner graph. On the
+        user's reply, the sub-agent re-runs from <code>entry_node</code>
+        with the reply appended to messages — typically your parse_node
+        extracts the new info and dispatch routes again.
       </p>
     </div>
   )
@@ -828,7 +850,7 @@ function EdgeEditor({ edge, allEdges, allNodes, onEdgesUpdate, onClose }) {
 
 // --- Main panel ---
 
-export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNodes, allEdges, agentName, onUpdate, onEdgesUpdate }) {
+export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNodes, allEdges, agentName, supportedChannels, onUpdate, onEdgesUpdate }) {
   if (edge) {
     return (
       <div className="p-4 space-y-4 overflow-y-auto h-full">
@@ -903,7 +925,7 @@ export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNod
         <ToolCallNodeEditor data={node.data} update={update} nodeIds={nodeIds} agentName={agentName} />
       )}
       {node.type === 'interrupt_node' && (
-        <InterruptNodeEditor data={node.data} update={update} slotNames={slotNames} />
+        <InterruptNodeEditor data={node.data} update={update} slotNames={slotNames} supportedChannels={supportedChannels} />
       )}
       {node.type === 'llm_node' && (
         <LlmNodeEditor data={node.data} update={update} />

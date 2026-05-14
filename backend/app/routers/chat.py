@@ -405,6 +405,20 @@ async def send_message(
                         interrupt_value = ints[0].value
                         break
                 if interrupt_value:
+                    # Persist slot-prompt interrupts so the question survives
+                    # page reload. message_type=slot_prompt lets the frontend
+                    # restore pendingResume on session load. Tool-driven
+                    # confirmation interrupts have their own widget message
+                    # already, so don't double-save them.
+                    if isinstance(interrupt_value, dict) and interrupt_value.get("kind") == "slot_prompt":
+                        prompt_text = interrupt_value.get("prompt") or ""
+                        if prompt_text:
+                            memory_svc = MemoryService(session, get_chroma_client())
+                            memory_svc.save_message(
+                                session_id, "assistant", prompt_text,
+                                message_type="slot_prompt",
+                                channel=req.channel,
+                            )
                     yield sse(interrupt_event(interrupt_value))
                     return
 

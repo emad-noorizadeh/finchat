@@ -69,7 +69,7 @@ File: `app/agent/state.py`
 Runs once at turn entry.
 
 - **First turn of a session** (`base_system_prompt` not yet in state):
-  - Builds `base_system_prompt` via `EnrichmentService.build_system_prompt()` — user profile + memory facts + response-strategy clause for the Planner. Expensive; cached.
+  - Builds `base_system_prompt` via `EnrichmentService.build_system_prompt()` — pulls a *summary* of the user's profile + accounts from the process-wide in-memory store (see *User data + memory layers*) and the top-3 long-term memory facts via `MemoryService.search_memories()` (a vector query against the `long_term_memory` Chroma collection). Bakes both into the prompt with a response-strategy clause for the Planner. Expensive; cached per session in the checkpointer.
 - **Every turn**:
   - Rebuilds `tool_schemas` / `available_tools` for always-loaded tools by calling each tool's `to_openai_schema()` fresh. Important because some tools (notably `knowledge_search`) have a dynamic `description()` tied to state outside the graph (the on-disk KB descriptor).
   - Cross-turn preservation: deferred tools discovered by `tool_search` in prior turns carry forward.
@@ -77,7 +77,7 @@ Runs once at turn entry.
   - If `channel == "voice"`, appends the voice style clause to `enrichment_context`. Tool-authored glass passes through verbatim.
   - Resets per-turn state: `iteration_count=0`, `search_tool_calls=0`, `response_terminated=False`, `knowledge_sources=[]`, `last_executed_tools=[]`, `variables={}`, `variables_order={}`, `variables_counter=0`, `go_to_presenter=False`, `hop_guard_triggered=False`.
 
-`enrich()` does NOT retrieve from Chroma. Knowledge retrieval is the `knowledge_search` tool's responsibility.
+`enrich()` queries Chroma exactly once per session, on the first turn, for long-term memory facts (cheap — top-3 vector search, short-circuited to `[]` when the user has no facts). Document RAG is a separate path — that's the `knowledge_search` tool's responsibility, called only when the Planner decides the turn is policy/factual.
 
 ### `planner_llm` (`llm_call` in `app/agent/nodes.py`)
 
@@ -344,6 +344,67 @@ Proven via unit + integration tests (captured LLM-input via mocked `ainvoke`):
 | `state["messages"]` | Never mutated — checkpointer keeps full history |
 
 End-to-end via the chat UI: after 11 user turns (well past the cutoff), *"what was the first thing I asked you in this session?"* → the LLM correctly recalled turn 1 despite that turn's tool result having been collapsed. Conversational coherence holds because user `HumanMessage.content` is never trimmed.
+
+## User data + memory layers
+
+User-scoped data flows through three distinct layers. They share the same backing storage in places but have different lifecycles, scopes, and consumers.
+
+### Layer 1 — Process-wide in-memory store (loaded at login, lives until restart)
+
+Two module-level dicts keyed by `customerLoginId`:
+
+| File | Dict | Source |
+|---|---|---|
+| `app/services/profile_service.py:_profile_data` | `{user_id → {profile, accounts, file_prefix}}` | `load_profile()` reads `profile/<prefix>_profile.json` once at login |
+| `app/services/transaction_service.py:_transaction_data` | `{user_id → {transactions, by_date, by_merchant}}` | `load_transactions()` reads `profile/<prefix>_transactions*.json` once at login |
+
+Populated by `app/routers/auth.py` on `POST /api/auth/login`. After that, every tool function and every turn reads from these dicts via `get_profile()`, `get_accounts()`, `get_transaction_records()`, etc. — no I/O on the hot path, no DB hit, no JSON parse.
+
+**Properties to know:**
+- *Process-wide, not per-conversation.* All logged-in users coexist in the same module dicts in one Python process. Acceptable for dev / single-tenant; in a multi-user prod deployment you'd want per-process workers, an LRU eviction policy, or a real cache (Redis with TTL).
+- *Stale-by-default.* No file-watcher and no TTL. Editing the profile JSON on disk does nothing until `load_profile()` runs again — practically, until the user re-logs in.
+- *Wiped on restart.* The next login after a restart re-reads from disk.
+
+### Layer 2 — Inlined into the system prompt every turn (a *summary*, not the full data)
+
+`EnrichmentService.build_system_prompt()` runs at first-turn `enrich`. It reads the in-memory profile + accounts (microseconds) and bakes a *small subset* into the Planner's system prompt as plain text:
+
+- Name, city/state, rewards tier
+- One line per account: `display_name: $balance`
+- Top-3 long-term memory facts (see Layer 3)
+
+This is why the Planner can answer "I don't see a savings account" without calling any tool — it sees the account list inline. **Transactions are NOT in the prompt** (too big); the summary stops at accounts.
+
+The system prompt is then cached in `state.base_system_prompt` (per session, in the checkpointer) and reused for every subsequent turn in that session. Prompt edits land for *new* chats; existing sessions carry the snapshot they were started with until they rotate out.
+
+### Layer 3 — Per-turn structured slots (`state.variables`)
+
+When the Planner needs the *full structured data* for a widget, it calls one of the data tools:
+
+| Tool | `output_var` slot | Reads from |
+|---|---|---|
+| `get_profile_data` | `state.variables.profile_data` | Layer 1 `_profile_data`, reshaped |
+| `get_accounts_data` | `state.variables.accounts_data` | Layer 1 `_profile_data['accounts']`, reshaped |
+| `get_transactions_data` | `state.variables.transactions_data` | Layer 1 `_transaction_data`, then `transaction_analyzer.analyze()` for filter/group/sort |
+
+`tool_execute` writes the parsed JSON into `state.variables[output_var]`. The Presenter then reads those slots to build widgets via the catalog's `slot_arg_map`. **Slots are reset per turn** (`enrich` zeroes `variables`, `variables_order`, `variables_counter`). They're scratch space for the Planner→Presenter handoff inside one turn, not long-term storage.
+
+### Long-term memory facts vs RAG — same vector store, different systems
+
+Two Chroma-backed retrieval paths exist. They're often confused because both use Chroma + embeddings, but they have different schemas, populators, readers, and purposes:
+
+| | Long-term memory | RAG |
+|---|---|---|
+| Chroma collection | `long_term_memory` | `system_knowledge` |
+| Sister SQL table | `MemoryFact` (`app/models/chat.py:33`) — `{user_id, category: "preference"\|"past_issue"\|"pattern", content}` | none — chunks live only in Chroma + ID metadata |
+| What it stores | Short user-specific facts ("user prefers monthly summaries", "had a chargeback dispute on Mar 15") | Document chunks from uploaded files (banking policies, product info) |
+| Populated by | `MemoryService.store_memory_fact()` — **currently has zero callers**; the auto-extract step that would write facts after each conversation isn't built yet | `IndexingService` when files are uploaded via `/api/files` |
+| Read by | `EnrichmentService.build_system_prompt()` once per session (top-3, query is the literal string `"general context"`) | `knowledge_search` tool — only when the Planner decides the turn is policy/factual |
+| Surfaces in prompt? | Yes — top-3 facts inlined under "Relevant context from past interactions:" | No — lives in tool result, becomes citation block in chat / suppressed in voice |
+| Retrieval shape | Single-stage vector similarity, `where: {user_id: ...}` filter | 2-stage: vector candidates → keyword-overlap boost → whole-doc boost → re-rank |
+| Status | Plumbing only — schema + retrieval built, write-side dormant. `search_memories()` short-circuits to `[]` when `MemoryFact` count is 0, which is the case for every user today. | Active — used by the regulatory-grounding path in the system prompt |
+
+Practical consequence: today the "Relevant context from past interactions:" line in every system prompt always reads `- No prior context.` until someone wires up a post-turn fact-extraction step.
 
 ## Knowledge retrieval
 
@@ -872,7 +933,7 @@ If the self-hosted instance uses a self-signed cert, set `REQUESTS_CA_BUNDLE=/pa
 ## Persistence
 
 - **SQLite** (`Message`, `ChatSession`, `MemoryFact`, `WidgetInstance`, `SubAgentTemplate`): transactional state and history. `Message.channel` records the channel each message was produced in. `SubAgentTemplate` rows carry `source` (`"seed"` for file-seeded regulated flows, `"user"` for builder-authored) and `status` (`draft`/`deployed`/`disabled`). The legacy `AgentDefinition` table is no longer used by the runtime; it persists only as an unused leftover.
-- **ChromaDB**: long-term memory facts and document embeddings for RAG.
+- **ChromaDB**: two collections, distinct purposes — `long_term_memory` (per-user facts, currently dormant) and `system_knowledge` (RAG document chunks). See *User data + memory layers* for the full breakdown.
 - **LangGraph checkpointer**: in-graph state (`AgentState`) keyed by `thread_id = session_id`. Enables interrupts and the resume flow.
 - **Per-process memory** (`app/agents/runtime.py:_INNER_STATE`): accumulated sub-agent inner state across outer interrupts. Wiped on backend restart; an acceptable Phase-1 limitation for voice dialogues.
 - **Seed data files** (`api_data/transfer/<login_id>/*.json`, `api_data/refund/<login_id>/*.json`): mock bank-API responses. Present for `alexm` and `aryash`; absent for `chrisp` (exercises the ineligible path).

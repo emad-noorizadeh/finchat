@@ -51,6 +51,20 @@ async def lifespan(app: FastAPI):
     from app.agents import init_agents
     init_agents()
 
+    # Refresh the LangGraph Studio config to reflect whatever the DB now
+    # holds (seeded + any UI-built templates from prior sessions). Hash-gated
+    # — no write if the set is unchanged.
+    try:
+        from app.agent.studio_setup import regenerate_langgraph_config
+        regenerate_langgraph_config()
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning(
+            "Studio langgraph.json regen failed at startup; "
+            "Studio will still work with whatever the file currently lists.",
+            exc_info=True,
+        )
+
     # Bootstrap the KB descriptor if it's missing — the knowledge_search tool
     # reads this file on every bind, so an existing Chroma collection without a
     # descriptor would look empty to the LLM until the next upload.

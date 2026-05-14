@@ -62,9 +62,16 @@ def template_for_agent(agent_name: str, channel: str = "chat"):
 
 
 def register_agent_scoped_tool(agent_name: str, tool):
-    if agent_name not in _AGENT_TOOLS:
-        _AGENT_TOOLS[agent_name] = []
-    _AGENT_TOOLS[agent_name].append(tool)
+    """Idempotent: registering the same tool twice for the same agent is a
+    no-op. Without this, init_agents() being re-run (e.g. on every
+    /api/agents deploy that calls _refresh_registry) accumulates duplicate
+    entries in _AGENT_TOOLS, which surface as repeated rows on the /tools
+    page and as duplicate Planner bindings."""
+    bucket = _AGENT_TOOLS.setdefault(agent_name, [])
+    tool_name = getattr(tool, "name", None)
+    if tool_name and any(getattr(t, "name", None) == tool_name for t in bucket):
+        return
+    bucket.append(tool)
 
 
 def get_agent_scoped_tools(agent_name: str) -> list:

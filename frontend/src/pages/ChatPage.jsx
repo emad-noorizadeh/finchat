@@ -32,6 +32,10 @@ export default function ChatPage() {
   const [thinkingMessage, setThinkingMessage] = useState('')
   const [toolExecutions, setToolExecutions] = useState(new Map())
   const [streamingMessageId, setStreamingMessageId] = useState(null)
+  // Set when a sub-agent interrupt_node prompts the user for a slot value.
+  // The next user message is sent as type=resume so it flows back into the
+  // paused inner graph instead of starting a new orchestrator turn.
+  const [pendingResume, setPendingResume] = useState(false)
 
   const userId = profile?.login_id
 
@@ -41,6 +45,24 @@ export default function ChatPage() {
       restoreSession(userId)
     }
   }, [userId, fetchSessions, restoreSession])
+
+  // Clear pending-resume when switching sessions — interrupt state is per-session.
+  useEffect(() => {
+    setPendingResume(false)
+  }, [activeSessionId])
+
+  // Restore pending-resume after page reload. The backend persists slot-prompt
+  // interrupts as assistant messages with message_type=slot_prompt; if one is
+  // the final assistant turn, the langgraph state is still paused waiting on
+  // the user's reply.
+  useEffect(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m.role !== 'assistant') continue
+      if (m.message_type === 'slot_prompt') setPendingResume(true)
+      break
+    }
+  }, [messages])
 
   const handleSelectSession = useCallback((sessionId) => {
     selectSession(sessionId, userId)
@@ -78,11 +100,19 @@ export default function ChatPage() {
 
     let accumulatedContent = ''
 
+    // If a slot-prompt interrupt is pending, this user message should resume
+    // the paused inner graph rather than starting a new turn.
+    const isResume = pendingResume
+    if (isResume) setPendingResume(false)
+    const body = isResume
+      ? { type: 'resume', user_id: userId, data: { utterance: text }, channel }
+      : { content: text, user_id: userId, channel }
+
     try {
       const response = await fetch(`/api/chat/sessions/${sessionId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text, user_id: userId, channel }),
+        body: JSON.stringify(body),
       })
 
       // Handle stale session (DB was reset)
@@ -181,24 +211,34 @@ export default function ChatPage() {
                 break
 
               case 'interrupt':
-                if (!accumulatedContent) removeMessage(assistantId)
-                // Show as confirmation widget
-                addMessage({
-                  id: Date.now() + Math.random(),
-                  role: 'assistant',
-                  message_type: 'widget',
-                  widget: {
-                    widget: 'confirmation_request',
-                    title: event.data?.title || 'Confirmation Required',
-                    data: event.data,
-                    actions: [
-                      { id: 'confirm', label: 'Confirm', style: 'primary', type: 'resume' },
-                      { id: 'cancel', label: 'Cancel', style: 'danger', type: 'resume' },
-                    ],
-                    metadata: {},
-                  },
-                  content: JSON.stringify(event.data),
-                })
+                if (event.data?.kind === 'slot_prompt') {
+                  // Sub-agent interrupt_node asked the user a question.
+                  // Render the prompt as the assistant message and arm
+                  // pendingResume so the user's next reply resumes the
+                  // paused inner graph.
+                  accumulatedContent = event.data.prompt || ''
+                  updateLastAssistantMessage(accumulatedContent)
+                  setPendingResume(true)
+                } else {
+                  if (!accumulatedContent) removeMessage(assistantId)
+                  // Tool-driven confirmation interrupt — render as widget.
+                  addMessage({
+                    id: Date.now() + Math.random(),
+                    role: 'assistant',
+                    message_type: 'widget',
+                    widget: {
+                      widget: 'confirmation_request',
+                      title: event.data?.title || 'Confirmation Required',
+                      data: event.data,
+                      actions: [
+                        { id: 'confirm', label: 'Confirm', style: 'primary', type: 'resume' },
+                        { id: 'cancel', label: 'Cancel', style: 'danger', type: 'resume' },
+                      ],
+                      metadata: {},
+                    },
+                    content: JSON.stringify(event.data),
+                  })
+                }
                 break
 
               case 'error':
@@ -227,7 +267,7 @@ export default function ChatPage() {
     setThinkingMessage('')
     setToolExecutions(new Map())
     fetchSessions(userId) // Refresh session list (title may have updated)
-  }, [isLoading, userId, activeSessionId, channel, createSession, addMessage, removeMessage, updateLastAssistantMessage, fetchSessions, newChat])
+  }, [isLoading, userId, activeSessionId, channel, createSession, addMessage, removeMessage, updateLastAssistantMessage, fetchSessions, newChat, pendingResume])
 
   // Quick-action handler — POST /quick_action, stream back the single widget
   // event. NO LLM calls. The server pre-persists the user message so history

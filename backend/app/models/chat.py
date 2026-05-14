@@ -22,7 +22,7 @@ class Message(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     session_id: str = Field(foreign_key="chat_sessions.id")
     role: str  # "user" | "assistant" | "tool"
-    message_type: str = "text"  # "text" | "widget" | "interrupt" | "tool_call" | "tool_response"
+    message_type: str = "text"  # "text" | "widget" | "interrupt" | "slot_prompt" | "tool_call" | "tool_response"
     content: str = ""
     tool_calls: list | None = Field(default=None, sa_column=Column(JSON))
     tool_call_id: str | None = None

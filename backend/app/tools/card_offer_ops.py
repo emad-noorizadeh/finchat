@@ -58,7 +58,9 @@ class CardOfferOpsTool(AgentTool):
     """Card-offer operations for the card_offer sub-agent."""
 
     name = "card_offer"
-    agent_name = "card_offer"
+    # Global scope ("" = callable from any sub-agent, not just card_offer).
+    # The catalogue is generic — browse and recommend agents both call it.
+    agent_name = ""
     description = (
         "Card-offer operations. list_offers returns a catalogue of credit-card "
         "offers the user is eligible for."

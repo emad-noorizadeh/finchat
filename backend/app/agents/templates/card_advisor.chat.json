@@ -1,0 +1,86 @@
+{
+  "name": "card_advisor_chat",
+  "agent_name": "card_advisor",
+  "display_name": "Card Advisor (Chat)",
+  "channel": "chat",
+  "template_schema_version": 1,
+  "is_regulated": false,
+  "supported_channels": ["chat"],
+  "suspend_resume_allowed": false,
+  "locked_for_business_user_edit": false,
+
+  "description": "When the user is shopping for a credit card and wants tailored advice (travel rewards vs cashback vs gas savings), this agent extracts their priority and returns a focused recommendation. Asks a clarifying question if the user hasn't stated a preference.",
+  "search_hint": "credit card advice recommend travel cashback gas rewards which card best for me suggest",
+  "always_load": false,
+
+  "entry_node": "parse_open",
+
+  "nodes": [
+    {
+      "id": "parse_open",
+      "type": "parse_node",
+      "data": {
+        "label": "Extract interest",
+        "mode": "llm",
+        "source": "last_user_message",
+        "llm_variant": "sub_agent",
+        "system_prompt": "You are a strict slot extractor for a credit-card advisor sub-agent. Read the user's message and extract ONE field.\n\n## Field\n- `interest` (\"travel\" | \"cashback\" | \"gas\" | null) — what the user values most in a card. Map common wording: 'travel' / 'flights' / 'hotels' / 'miles' → travel; 'cash back' / 'cashback' / 'rewards' / 'everyday' → cashback; 'gas' / 'fuel' / 'EV charging' / 'driving' → gas. If the user did not state a clear preference, return null.\n\n## Examples\n- User: 'I travel a lot for work'           → {interest: \"travel\"}\n- User: 'I want a no-fee cashback card'    → {interest: \"cashback\"}\n- User: 'I drive 2 hours a day'             → {interest: \"gas\"}\n- User: 'I need a credit card'              → {interest: null}",
+        "output_schema": {
+          "interest": {"type": "string", "nullable": true}
+        },
+        "writes": {"interest": "interest"}
+      }
+    },
+
+    {"id": "dispatch", "type": "condition_node", "data": {"label": "Dispatch on interest"}},
+
+    {
+      "id": "ask",
+      "type": "interrupt_node",
+      "data": {
+        "label": "Ask what matters most",
+        "prompt_template": "What matters most to you in a credit card — travel rewards, cashback, or gas savings?",
+        "voice_prompt_template": "What matters most to you — travel rewards, cashback, or gas savings?",
+        "targets_slot": "interest"
+      }
+    },
+
+    {
+      "id": "respond_travel",
+      "type": "response_node",
+      "data": {
+        "label": "Recommend travel card",
+        "return_mode": "to_orchestrator",
+        "text_template": "Recommend the Globetrotter Travel Card to the user. Key selling points to highlight: 3x points on travel and dining, no foreign transaction fees, and a $200 yearly travel credit. The $95 annual fee usually pays itself back if they fly more than twice a year. Suggest they ask about other cards if they want a comparison."
+      }
+    },
+
+    {
+      "id": "respond_cashback",
+      "type": "response_node",
+      "data": {
+        "label": "Recommend cashback card",
+        "return_mode": "to_orchestrator",
+        "text_template": "Recommend the Everyday Cash Rewards card. Key points: 1.5% cashback on every purchase, no annual fee, easy redemption to checking. Frame it as the right call for someone who wants simple, no-thinking-required rewards. Suggest they ask about other cards if they want a comparison."
+      }
+    },
+
+    {
+      "id": "respond_gas",
+      "type": "response_node",
+      "data": {
+        "label": "Recommend gas card",
+        "return_mode": "to_orchestrator",
+        "text_template": "Recommend the Fuel Saver Card. Key points: 5% back at gas stations, 3% back on EV charging, 1% on everything else, no annual fee. Frame it as ideal for daily drivers. Mention that someone spending $300/month on gas earns about $180/year back. Suggest they ask about other cards if they want a comparison."
+      }
+    }
+  ],
+
+  "edges": [
+    {"source": "parse_open", "target": "dispatch"},
+    {"source": "dispatch", "target": "respond_travel",   "predicate": "variables.interest == 'travel'"},
+    {"source": "dispatch", "target": "respond_cashback", "predicate": "variables.interest == 'cashback'"},
+    {"source": "dispatch", "target": "respond_gas",      "predicate": "variables.interest == 'gas'"},
+    {"source": "dispatch", "target": "ask",              "predicate": "true"}
+  ]
+}

@@ -23,6 +23,11 @@ Data schema:
 
   # to_orchestrator mode:
     text_template: str        # prose the Planner will paraphrase
+    text_source: "template" | "last_assistant_message"   # default: template
+    # When text_source == "last_assistant_message", the node ignores
+    # text_template and returns the .content of the most recent AIMessage
+    # in state.messages. Use this when a prior llm_node already produced
+    # the final user-facing text (e.g. an inner ReAct loop's summary turn).
 """
 
 from __future__ import annotations
@@ -49,6 +54,12 @@ def build_response_node_factory(data: dict) -> Callable:
     glass_template = data.get("glass_template", "")
     slot_writes = data.get("slot_writes") or {}
     text_template = data.get("text_template", "")
+    text_source = data.get("text_source", "template")
+    if text_source not in ("template", "last_assistant_message"):
+        raise ValueError(
+            "response_node.text_source must be 'template' or 'last_assistant_message', "
+            f"got {text_source!r}"
+        )
 
     async def handler(state: dict) -> dict:
         from app.utils.templates import resolve_templates
@@ -85,7 +96,10 @@ def build_response_node_factory(data: dict) -> Callable:
             result["variables"] = variables
 
         else:  # to_orchestrator
-            text = str(resolve_templates(text_template, state))
+            if text_source == "last_assistant_message":
+                text = _last_ai_content(state)
+            else:
+                text = str(resolve_templates(text_template, state))
             variables = dict(state.get("variables") or {})
             variables["_response_text"] = text
             variables["_return_mode"] = "to_orchestrator"
@@ -98,6 +112,14 @@ def build_response_node_factory(data: dict) -> Callable:
         return result
 
     return handler
+
+
+def _last_ai_content(state: dict) -> str:
+    from langchain_core.messages import AIMessage
+    for msg in reversed(state.get("messages") or []):
+        if isinstance(msg, AIMessage) and isinstance(msg.content, str) and msg.content.strip():
+            return msg.content
+    return ""
 
 
 register_node_type("response_node", build_response_node_factory)

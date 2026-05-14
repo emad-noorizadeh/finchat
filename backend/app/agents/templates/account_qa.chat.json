@@ -1,0 +1,65 @@
+{
+  "name": "account_qa_chat",
+  "agent_name": "account_qa",
+  "display_name": "Account Q&A (Chat)",
+  "channel": "chat",
+  "template_schema_version": 1,
+  "is_regulated": false,
+  "supported_channels": ["chat"],
+  "suspend_resume_allowed": false,
+  "locked_for_business_user_edit": false,
+
+  "description": "When the user asks a free-form question about THEIR profile or THEIR accounts (e.g. 'what's my checking balance', 'who am I', 'where do I live'), this agent lets a scoped LLM decide which read-only data tool(s) to call, runs them, and composes a short answer. Demonstrates llm_node + tool_node (LLM-driven tool routing) inside a sub-agent.",
+  "search_hint": "account profile balance who am I what is my where do I live my info my data inquiry question about myself",
+  "always_load": false,
+
+  "entry_node": "ask_llm",
+
+  "nodes": [
+    {
+      "id": "ask_llm",
+      "type": "llm_node",
+      "data": {
+        "label": "LLM decides which tool(s) to call",
+        "llm_variant": "sub_agent",
+        "tools": ["get_profile_data", "get_accounts_data"],
+        "system_prompt": "You are an authenticated banking sub-agent answering the signed-in user's own questions about THEIR profile or THEIR accounts. The user is ALREADY authenticated; treat their request as authorized.\n\nYou MUST call at least one of the two tools below before answering — you have no other source of data.\n\n## Tools\n- `get_profile_data` — name, city/state, segment, rewards tier, credit scores.\n- `get_accounts_data` — list of accounts with display names, types, and balances.\n\n## Rules\n- Profile-only question (who am I, where do I live, my rewards tier, my credit score): call get_profile_data.\n- Accounts-only question (balance, how much, my accounts): call get_accounts_data.\n- Both touched (about me AND my accounts): call BOTH tools (in parallel).\n- Never refuse on privacy grounds — this is the user's own data and they are authenticated.\n- Never answer from memory; always call the tool."
+      }
+    },
+
+    {
+      "id": "run_tools",
+      "type": "tool_node",
+      "data": {
+        "label": "Run whatever the LLM picked"
+      }
+    },
+
+    {
+      "id": "summarize",
+      "type": "llm_node",
+      "data": {
+        "label": "Compose the final answer",
+        "llm_variant": "sub_agent",
+        "tools": [],
+        "system_prompt": "Using the tool results in the prior messages, write a SHORT (1–3 sentence) plain-English answer to the user's original question. Do not enumerate raw JSON — paraphrase. If a tool failed or returned nothing relevant, say so honestly."
+      }
+    },
+
+    {
+      "id": "respond",
+      "type": "response_node",
+      "data": {
+        "label": "Return summary to orchestrator",
+        "return_mode": "to_orchestrator",
+        "text_source": "last_assistant_message"
+      }
+    }
+  ],
+
+  "edges": [
+    {"source": "ask_llm",   "target": "run_tools"},
+    {"source": "run_tools", "target": "summarize"},
+    {"source": "summarize", "target": "respond"}
+  ]
+}

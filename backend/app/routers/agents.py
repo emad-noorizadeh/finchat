@@ -23,6 +23,7 @@ from app.agents.template_store import (
     delete_template,
     get_row,
     get_row_by_agent_channel,
+    import_template_file,
     list_rows_all,
     set_status,
     upsert_template,
@@ -208,14 +209,33 @@ def _build_raw(req: AgentUpsertRequest) -> dict:
 
 
 def _refresh_registry() -> None:
-    """Reload auto-registered DB-backed sub-agent tools after any write so
-    the main orchestrator's Planner catalogue stays in sync without a
-    restart."""
+    """Reload auto-registered DB-backed sub-agent tools AND re-register
+    (agent_name, channel) → template lookups so the main orchestrator's
+    Planner catalogue and `template_for_agent()` resolver stay in sync
+    after any write without a restart."""
     try:
         from app.tools.dynamic_sub_agent_tool import refresh_dynamic_sub_agent_tools
         refresh_dynamic_sub_agent_tools()
     except Exception as e:  # noqa: BLE001
         logger.warning("[dynamic_sub_agent_refresh_failed] err=%s", e)
+
+    # `_AGENT_TEMPLATE` is filled by `init_agents()` at startup. New
+    # templates added after startup (via API or re-seed) need it re-run
+    # so DynamicSubAgentTool._compiled_for() can resolve them.
+    try:
+        from app.agents import init_agents
+        init_agents()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[agent_template_refresh_failed] err=%s", e)
+
+    # Refresh the LangGraph Studio config so newly-created/-edited templates
+    # appear in Studio's sidebar without a manual regen. Hash-gated — no-op
+    # when the template set is unchanged.
+    try:
+        from app.agent.studio_setup import regenerate_langgraph_config
+        regenerate_langgraph_config()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[studio_langgraph_regen_failed] err=%s", e)
 
 
 @router.post("")
@@ -289,6 +309,40 @@ def disable_agent(template_name: str):
         raise HTTPException(404, f"Template {template_name!r} not found")
     _refresh_registry()
     return {"name": row.name, "status": row.status}
+
+
+@router.post("/admin/import-file/{filename}")
+def admin_import_file(filename: str, request: Request):
+    """Deliberately re-apply a seed JSON file from app/agents/templates/
+    onto the DB. Use this to deploy a regulated-agent content change after
+    bootstrap, or to push a curated seed update.
+
+    Overwrites the existing row (if any) and stamps source='seed', even
+    when the previous source was 'user' — the caller is explicitly
+    asserting that this file is now the truth. Audit-logged.
+    """
+    from app.agents.templates import get_template_dir
+
+    # Reject path-traversal attempts; filename must be a bare *.json basename.
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(400, "filename must be a bare *.json basename")
+    if not filename.endswith(".json"):
+        raise HTTPException(400, "filename must end with .json")
+
+    actor = _actor(request)
+    try:
+        row = import_template_file(get_template_dir(), filename)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except TemplateValidationError as e:
+        raise HTTPException(400, str(e))
+
+    logger.info(
+        "[admin_template_imported] name=%s file=%s by=%s",
+        row.name, filename, actor,
+    )
+    _refresh_registry()
+    return {"name": row.name, "source": row.source, "status": row.status, "hash": (row.hash or "")[:12]}
 
 
 # --- Helpers ---

@@ -1,0 +1,76 @@
+{
+  "name": "card_browser_chat",
+  "agent_name": "card_browser",
+  "display_name": "Card Browser (Chat)",
+  "channel": "chat",
+  "template_schema_version": 1,
+  "is_regulated": false,
+  "supported_channels": ["chat"],
+  "suspend_resume_allowed": false,
+  "locked_for_business_user_edit": false,
+
+  "description": "When the user wants to browse the full credit-card catalogue (e.g. 'show me all credit card offers', 'what cards do you have'), this agent extracts the user's intent, dispatches to the card_offer tool to fetch the catalogue, and returns the list. Use when the user wants to see options, NOT when they want a tailored recommendation.",
+  "search_hint": "show me cards list cards browse catalogue all credit card offers what cards available card list",
+  "always_load": false,
+
+  "entry_node": "parse_intent",
+
+  "nodes": [
+    {
+      "id": "parse_intent",
+      "type": "parse_node",
+      "data": {
+        "label": "Extract intent",
+        "mode": "llm",
+        "source": "last_user_message",
+        "llm_variant": "sub_agent",
+        "system_prompt": "You are a strict slot extractor for a card-browser sub-agent.\n\n## Field\n- `intent` (\"list\" | null) — set to \"list\" if the user wants to see/browse/list the available credit-card offers. Set to null if they want a tailored recommendation or are asking something unrelated.\n\n## Examples\n- User: 'show me all credit card offers'        → {intent: \"list\"}\n- User: 'what credit cards do you have'         → {intent: \"list\"}\n- User: 'list available cards'                  → {intent: \"list\"}\n- User: 'I want a travel card'                  → {intent: null}\n- User: 'recommend the best card for me'        → {intent: null}",
+        "output_schema": {
+          "intent": {"type": "string", "nullable": true}
+        },
+        "writes": {"intent": "intent"}
+      }
+    },
+
+    {"id": "dispatch", "type": "condition_node", "data": {"label": "Dispatch on intent"}},
+
+    {
+      "id": "decline",
+      "type": "response_node",
+      "data": {
+        "label": "Decline politely",
+        "return_mode": "to_orchestrator",
+        "text_template": "It sounded like you want a personalized credit-card pick rather than the full catalogue. Hand the user back to the orchestrator so it can route to the recommender agent."
+      }
+    },
+
+    {
+      "id": "fetch_offers",
+      "type": "tool_call_node",
+      "data": {
+        "label": "Fetch the card catalogue",
+        "tool": "card_offer",
+        "action": "list_offers",
+        "params": {},
+        "output_var": "offers"
+      }
+    },
+
+    {
+      "id": "respond_list",
+      "type": "response_node",
+      "data": {
+        "label": "Return the catalogue",
+        "return_mode": "to_orchestrator",
+        "text_template": "Here are the credit-card offers available right now: {{variables.offers.offers}}.\n\nSummarize them as a short bulleted list for the user (name + one-line headline benefit each), and offer to compare any two if they want."
+      }
+    }
+  ],
+
+  "edges": [
+    {"source": "parse_intent", "target": "dispatch"},
+    {"source": "dispatch",     "target": "fetch_offers", "predicate": "variables.intent == 'list'"},
+    {"source": "dispatch",     "target": "decline",      "predicate": "true"},
+    {"source": "fetch_offers", "target": "respond_list"}
+  ]
+}

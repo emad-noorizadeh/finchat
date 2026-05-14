@@ -5,7 +5,7 @@ doesn't care whether a template came from the DB or from a seed JSON file.
 `list_templates()` returns `LoadedTemplate` dataclasses — the same runtime
 shape the compiler and runtime already consume.
 
-Seeding: on first boot against an empty DB, `seed_from_files(dir)` imports
+Seeding: on first boot against an empty DB, `bootstrap_from_files(dir)` imports
 every *.json template into rows with `source='seed'`. Subsequent edits via
 the API go into `source='user'` rows.
 """
@@ -152,12 +152,20 @@ def upsert_template(
         if existing:
             for k, v in values.items():
                 setattr(existing, k, v)
+            # Re-stamp source so the row's label tracks reality. A UI edit
+            # of a previously-seeded row flips it to 'user'; the seed file
+            # is no longer authoritative for this row (it never was after
+            # bootstrap, but the label was misleading before this fix).
+            existing.source = source
             from datetime import datetime, timezone
             existing.updated_at = datetime.now(timezone.utc)
             db.add(existing)
             db.commit()
             db.refresh(existing)
-            logger.info("[template_updated] name=%s by=%s", loaded.name, created_by)
+            logger.info(
+                "[template_updated] name=%s by=%s source=%s",
+                loaded.name, created_by, source,
+            )
             return existing
 
         row = SubAgentTemplate(
@@ -208,77 +216,130 @@ def delete_template(name: str) -> bool:
 # --- Seeding ---
 
 
-def seed_from_files(template_dir: Path) -> int:
-    """Import/refresh every JSON file as a seed template (status='deployed',
-    source='seed'). Returns the count of rows inserted or re-synced.
+def bootstrap_from_files(template_dir: Path) -> int:
+    """One-time bootstrap: if the templates table is empty, import every
+    *.json file as a deployed seed row. After bootstrap, the DB is the
+    sole source of truth — subsequent boots are no-ops regardless of
+    whether the JSON files have changed.
 
-    Behaviour:
-      - If no DB row exists for a file's template name → insert it.
-      - If a DB row exists with source='seed' and a different hash → overwrite
-        (file-authored regulated templates stay in sync with the repo).
-      - If a DB row exists with source='user' → never touch it (business-user
-        authored templates win over same-name seed files).
+    To re-apply an updated JSON file after bootstrap, call the admin
+    endpoint `POST /api/agents/admin/import-file/{filename}` (which
+    routes through `import_template_file()` below). That's the
+    deliberate "deploy a seeded-content change" path; auto-re-syncing
+    every boot was removed because it would silently overwrite UI edits.
+
+    Returns the count of rows inserted, or 0 if the table was non-empty.
     """
-    from datetime import datetime, timezone
-
-    count = 0
     with Session(engine) as db:
+        any_row = db.exec(select(SubAgentTemplate)).first()
+        if any_row is not None:
+            logger.info(
+                "[template_bootstrap_skipped] reason=db_non_empty existing=%s",
+                any_row.name,
+            )
+            return 0
+
+        count = 0
         for json_file in sorted(template_dir.glob("*.json")):
             try:
                 raw = json.loads(json_file.read_text())
                 loaded = load_template(raw)
-                existing = db.exec(
-                    select(SubAgentTemplate).where(SubAgentTemplate.name == loaded.name)
-                ).first()
-
-                if existing and existing.source == "user":
-                    continue  # business-user row takes precedence
-                if existing and existing.hash == loaded.hash:
-                    continue  # already in sync
-
-                # Pull LLM-facing metadata from the JSON file so seeded
-                # templates are fully self-describing without a follow-up
-                # Builder-UI edit. Existing user-edited rows are skipped
-                # above (source='user' guard).
-                values = {
-                    "agent_name": loaded.agent_name,
-                    "channel": loaded.channel,
-                    "display_name": loaded.display_name,
-                    "description": raw.get("description") or "",
-                    "search_hint": raw.get("search_hint") or "",
-                    "always_load": bool(raw.get("always_load", False)),
-                    "schema_version": loaded.schema_version,
-                    "hash": loaded.hash,
-                    "is_regulated": loaded.is_regulated,
-                    "locked_for_business_user_edit": loaded.locked_for_business_user_edit,
-                    "suspend_resume_allowed": loaded.suspend_resume_allowed,
-                    "supported_channels": list(loaded.supported_channels),
-                    "entry_node": loaded.entry_node,
-                    "unsupported_channel_message": loaded.unsupported_channel_message,
-                    "graph_definition": {
-                        "nodes": list(loaded.nodes),
-                        "edges": list(loaded.edges),
-                    },
-                }
-
-                if existing:
-                    for k, v in values.items():
-                        setattr(existing, k, v)
-                    existing.updated_at = datetime.now(timezone.utc)
-                    db.add(existing)
-                    logger.info("[template_reseeded] name=%s file=%s", loaded.name, json_file.name)
-                else:
-                    row = SubAgentTemplate(
-                        name=loaded.name,
-                        status="deployed",
-                        source="seed",
-                        created_by="seed",
-                        **values,
-                    )
-                    db.add(row)
-                    logger.info("[template_seeded] name=%s file=%s", loaded.name, json_file.name)
+                values = _row_values_from_raw(raw, loaded)
+                row = SubAgentTemplate(
+                    name=loaded.name,
+                    status="deployed",
+                    source="seed",
+                    created_by="seed",
+                    **values,
+                )
+                db.add(row)
                 count += 1
+                logger.info(
+                    "[template_bootstrap_inserted] name=%s file=%s",
+                    loaded.name, json_file.name,
+                )
             except Exception as e:  # noqa: BLE001
-                logger.error("[template_seed_failed] file=%s err=%s", json_file.name, e)
+                logger.error(
+                    "[template_bootstrap_failed] file=%s err=%s",
+                    json_file.name, e,
+                )
         db.commit()
-    return count
+        return count
+
+
+def import_template_file(template_dir: Path, filename: str) -> SubAgentTemplate:
+    """Admin-triggered: re-apply a single JSON file from `template_dir`
+    onto the DB. Used to deploy a regulated-agent content change OR to
+    push a curated seed update into a long-lived DB that wasn't empty
+    at boot.
+
+    Always sets source='seed' on the resulting row — even when
+    overwriting an existing source='user' row — because the caller is
+    explicitly asserting "this file is now the truth". Audit-log the
+    call upstream (the API layer).
+    """
+    from datetime import datetime, timezone
+
+    path = template_dir / filename
+    if not path.exists():
+        raise FileNotFoundError(f"template file not found: {filename}")
+    raw = json.loads(path.read_text())
+    loaded = load_template(raw)
+    values = _row_values_from_raw(raw, loaded)
+
+    with Session(engine) as db:
+        existing = db.exec(
+            select(SubAgentTemplate).where(SubAgentTemplate.name == loaded.name)
+        ).first()
+        if existing:
+            for k, v in values.items():
+                setattr(existing, k, v)
+            existing.source = "seed"
+            existing.updated_at = datetime.now(timezone.utc)
+            db.add(existing)
+            db.commit()
+            db.refresh(existing)
+            logger.info(
+                "[template_imported] name=%s file=%s mode=overwrite "
+                "prev_source=%s",
+                loaded.name, filename, existing.source,
+            )
+            return existing
+
+        row = SubAgentTemplate(
+            name=loaded.name,
+            status="deployed",
+            source="seed",
+            created_by="seed",
+            **values,
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        logger.info("[template_imported] name=%s file=%s mode=insert", loaded.name, filename)
+        return row
+
+
+def _row_values_from_raw(raw: dict, loaded) -> dict:
+    """Shared field mapping used by both bootstrap and admin import. Keeps
+    LLM-facing metadata + graph in sync with the JSON file."""
+    return {
+        "agent_name": loaded.agent_name,
+        "channel": loaded.channel,
+        "display_name": loaded.display_name,
+        "description": raw.get("description") or "",
+        "search_hint": raw.get("search_hint") or "",
+        "always_load": bool(raw.get("always_load", False)),
+        "schema_version": loaded.schema_version,
+        "hash": loaded.hash,
+        "is_regulated": loaded.is_regulated,
+        "locked_for_business_user_edit": loaded.locked_for_business_user_edit,
+        "suspend_resume_allowed": loaded.suspend_resume_allowed,
+        "supported_channels": list(loaded.supported_channels),
+        "entry_node": loaded.entry_node,
+        "unsupported_channel_message": loaded.unsupported_channel_message,
+        "graph_definition": {
+            "nodes": list(loaded.nodes),
+            "edges": list(loaded.edges),
+        },
+    }

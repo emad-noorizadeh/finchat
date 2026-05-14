@@ -492,16 +492,17 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
                   <textarea
                     value={form.description}
                     onChange={(e) => setField('description', e.target.value)}
-                    rows={3}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500 resize-none"
+                    rows={6}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500 resize-y overflow-auto min-h-[6rem] max-h-[24rem] whitespace-pre-wrap"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Search Hint</label>
-                  <input
+                  <textarea
                     value={form.search_hint}
                     onChange={(e) => setField('search_hint', e.target.value)}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500"
+                    rows={3}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500 resize-y overflow-auto min-h-[4rem] max-h-[16rem] whitespace-pre-wrap"
                   />
                 </div>
               </>
@@ -643,6 +644,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
               allNodes={form.graph_definition.nodes}
               allEdges={form.graph_definition.edges}
               agentName={form.name}
+              supportedChannels={form.supported_channels || [form.channel]}
               onUpdate={handleNodeDataChange}
               onEdgesUpdate={(edges) => setForm((f) => ({
                 ...f,

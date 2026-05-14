@@ -19,7 +19,11 @@ chain and `backend/app/database.py:run_migrations` for the boot-time hook.
 4. Watch pod logs until lifespan reports startup complete.
 5. If the release includes migrations, verify the schema (see
    "Migration verification").
-6. Unfreeze.
+6. If the release includes a content change to any seeded sub-agent template
+   (e.g. `transfer_money_chat.json` updated in the PR), explicitly apply each
+   changed file via the admin import endpoint (see "Agent template
+   deploys"). File changes are NOT auto-deployed by the new image.
+7. Unfreeze.
 
 If anything looks wrong: scale to 0, restore the backup, redeploy the
 previous image, scale to 1.
@@ -487,6 +491,123 @@ revision id (a linear rebase) before merging.
 
 ---
 
+## Agent template deploys
+
+Sub-agent templates (the JSON files in `app/agents/templates/`) are **bootstrap seeds**, NOT auto-deployed config. A fresh install (empty `sub_agent_templates` table) loads them all at boot. Every subsequent boot ignores file changes — the DB is the sole source of truth from that point on.
+
+To deploy a content change for a seed template (regulated or otherwise) you make a **deliberate** call to the admin import endpoint after the new image is up.
+
+### Why it's deliberate, not automatic
+
+The old behaviour re-synced files into the DB on every boot if hashes differed. That auto-clobbered any UI edits and gave regulated content a "no-deploy-step" that compliance disliked. The current model trades a small amount of friction (one curl per file) for:
+
+- An explicit, audit-logged deploy event for every regulated agent content change.
+- No silent overwrite of business-user UI authoring.
+- A clear single source of truth (the DB) after install.
+
+### Worked example — update a regulated agent's content
+
+Scenario: `transfer_money_chat.json` got a prompt fix in a merged PR. The new image ships with the updated file. You now want it applied to prod.
+
+```bash
+# 1. Verify the file is present in the new image
+oc exec <pod> -- cat /app/app/agents/templates/transfer_money_chat.json | head -20
+
+# 2. Apply it. The admin endpoint reads the file, validates it via
+#    template_loader, overwrites the DB row (even if it's locked),
+#    audit-logs the call, and refreshes the in-memory registry.
+oc exec <pod> -- curl -s -X POST \
+  -H "X-User-Id: $(whoami)" \
+  http://localhost:8000/api/agents/admin/import-file/transfer_money_chat.json
+
+# → {"name":"transfer_money_chat","source":"seed","status":"deployed","hash":"<12-char>"}
+
+# 3. Confirm via the public detail endpoint.
+oc exec <pod> -- curl -s http://localhost:8000/api/agents/transfer_money/chat | jq '.hash,.status,.source,.updated_at'
+```
+
+For bulk operations, use the helper script `backend/scripts/import_seed.sh`:
+
+```bash
+# Plan (read-only) — show every file with its current DB hash, no writes.
+./scripts/import_seed.sh --diff
+
+# Apply every *.json in app/agents/templates/.
+./scripts/import_seed.sh
+
+# Apply one specific file.
+./scripts/import_seed.sh transfer_money_chat.json
+
+# In a pod (the in-pod port is 8000, not 6000):
+HOST=http://localhost:8000 ./scripts/import_seed.sh --diff
+HOST=http://localhost:8000 ACTOR=$(whoami)@laptop ./scripts/import_seed.sh
+```
+
+The script reports `applied=N  unchanged=N  failed=N` per run and exits non-zero if anything failed. Files whose current DB hash already matches the file are reported as `unchanged` and skipped quietly (the API call still goes through, but the row's content doesn't actually change).
+
+### Local equivalent (single file via raw curl)
+
+```bash
+curl -s -X POST \
+  -H "X-User-Id: $(whoami)" \
+  http://localhost:6000/api/agents/admin/import-file/transfer_money_chat.json
+```
+
+The local backend port is 6000; in prod it's 8000 inside the pod (use `oc port-forward` if you need to hit it from your laptop).
+
+### What gets overwritten
+
+- **Always**: `graph_definition` (nodes/edges), `description`, `search_hint`, `always_load`, channel + locked + suspend flags, schema_version, and `hash`. The `updated_at` timestamp moves.
+- **Stamped to `'seed'`**: the `source` column, regardless of its previous value. The admin import is asserting "this file is now the truth for this row."
+- **Preserved**: `status` stays whatever it was; `created_by` and `created_at` are not touched.
+
+If a row was previously edited through the Builder UI and is now `source='user'`, the admin import WILL clobber those UI edits and flip source back to `'seed'`. That's the intended escape hatch — an admin can always reset a row to canonical file content — but **don't surprise a business-user team by doing it without a heads-up**.
+
+### What if I deleted a regulated row by accident?
+
+The admin import endpoint inserts a fresh row when the row is missing:
+
+```bash
+oc exec <pod> -- curl -s -X POST \
+  http://localhost:8000/api/agents/admin/import-file/transfer_money_chat.json
+# → {"name":"transfer_money_chat",...}  ← row re-created
+```
+
+If you deleted the row AND the file is gone (or wrong) in the image, restore from a DB backup using the standard restore procedure above. The DB row is canonical at all times after bootstrap.
+
+### Bootstrap edge case — fresh OpenShift install
+
+On the very first deploy to an empty environment, `bootstrap_from_files()` runs at lifespan startup and inserts every JSON from the image into the empty DB with `source='seed'`. No admin call needed for the initial install.
+
+Verify the bootstrap ran:
+
+```bash
+oc logs deployment/backend | grep -E "template_bootstrap_(inserted|skipped)"
+# → [template_bootstrap_inserted] name=transfer_money_chat file=transfer_money_chat.json
+# → [template_bootstrap_inserted] name=card_advisor_chat file=card_advisor.chat.json
+# → ...
+```
+
+On every subsequent boot:
+
+```bash
+oc logs deployment/backend | grep template_bootstrap
+# → [template_bootstrap_skipped] reason=db_non_empty existing=transfer_money_chat
+```
+
+If you ever see `[template_bootstrap_inserted]` on a non-first boot, something nuked the table — investigate before doing anything else, because all UI-authored agents are gone too.
+
+### Agent template deploy — checklist
+
+- [ ] Image deployed with the new JSON files baked in.
+- [ ] Run `./scripts/import_seed.sh --diff` to preview the plan and double-check which rows are about to change.
+- [ ] Run `./scripts/import_seed.sh` (or `./scripts/import_seed.sh <filename>` for a single file). Confirm `failed=0` and the expected `applied` count.
+- [ ] Spot-check via `GET /api/agents/<name>/<channel>` that the hash/timestamp moved.
+- [ ] Spot-check via the Builder UI that the agent's graph looks right.
+- [ ] If you touched an `always_load=true` agent, do one chat turn to confirm the Planner still binds it without errors.
+
+---
+
 ## Quick reference — local vs prod commands
 
 | Operation | Locally | In prod (OpenShift) |
@@ -500,6 +621,10 @@ revision id (a linear rebase) before merging.
 | Apply migrations manually | `./scripts/migrate.sh` | `oc exec <pod> -- /app/scripts/migrate.sh` |
 | Verify schema | `./scripts/verify_db.sh data/app.db` | `oc exec <pod> -- /app/scripts/verify_db.sh /app/data/app.db` |
 | Restore backup | `cp data/app.db.backup.<ts> data/app.db` | `oc cp ./backup.db <pod>:/app/data/app.db.new && oc exec <pod> -- mv ...` |
+| Apply an agent JSON file change | `./scripts/import_seed.sh <filename>` | `oc exec <pod> -- env HOST=http://localhost:8000 /app/scripts/import_seed.sh <filename>` |
+| Apply ALL seed files (bulk) | `./scripts/import_seed.sh` | `oc exec <pod> -- env HOST=http://localhost:8000 /app/scripts/import_seed.sh` |
+| Plan seed imports (read-only) | `./scripts/import_seed.sh --diff` | `oc exec <pod> -- env HOST=http://localhost:8000 /app/scripts/import_seed.sh --diff` |
+| Inspect a sub-agent's current row | `curl http://localhost:6000/api/agents/<name>/<channel>` | `oc exec <pod> -- curl http://localhost:8000/api/agents/<name>/<channel>` |
 
 The `oc exec <pod> -- <command>` pattern means "run this inside the
 container." Locally, you ARE the container — drop the wrapper.
