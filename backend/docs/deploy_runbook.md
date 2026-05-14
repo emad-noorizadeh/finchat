@@ -75,8 +75,18 @@ Pulling a copy off-cluster is the safety net against PV corruption.
 #### Locally
 
 ```bash
-# Make sure the backend isn't running first
+# 1. Stop the backend (Ctrl-C in its terminal).
+
+# 2. Remove SQLite's WAL sidecars if present — these belong to the LIVE
+#    DB and would put the restored file into an inconsistent state.
+#    The journal file is created in non-WAL mode; either may exist.
+rm -f data/app.db-wal data/app.db-shm data/app.db-journal
+
+# 3. Copy the backup over the live DB.
 cp data/app.db.backup.20260512-143022 data/app.db
+
+# 4. Start the backend.
+python run.py
 ```
 
 #### In prod
@@ -102,6 +112,102 @@ No automated retention yet. Conventions until that lands:
   during the deploy window.
 - Pull a copy of any pre-migration backup down to your laptop or a
   shared drive — that's your insurance against PV corruption.
+
+---
+
+## Test a migration locally
+
+Use this flow when you've pulled a branch that adds a new file under
+`backend/migrations/versions/` and you want to validate it against your
+own local data **before** running the backend on it (and before any
+prod deploy). This is what dev `<--->` migration sanity-checking looks
+like end-to-end.
+
+```bash
+cd backend
+source .venv/bin/activate
+
+# 1. Back up your local DB — every migration test starts here.
+./scripts/backup_db.sh data/app.db
+# → Backup created: data/app.db.backup.<timestamp>
+#   Note the filename — you may need it for rollback in step 6.
+
+# 2. (Read-only) inspect what's pending.
+alembic current      # where the DB is now (the previous head)
+alembic heads        # what the new migration chain ends at
+alembic history      # full chain (most-recent first)
+
+# 3. Apply the pending migrations.
+./scripts/migrate.sh
+# Each "Running upgrade <prev> -> <next>" line is one migration applied
+# inside a transaction. If any one fails, alembic rolls back THAT
+# migration only; earlier ones in the same run stay committed.
+
+# 4. Verify the schema is at head and key tables look right.
+./scripts/verify_db.sh data/app.db
+# Confirm the "alembic current" output shows the new revision tagged "(head)".
+
+# 5. Run the backend and exercise the changed code paths.
+python run.py
+# Send a chat message in the UI, hit any endpoint that touches the new
+# schema, run any relevant tests:
+# pytest tests/
+```
+
+If everything works, you're done — the migration is safe to ship.
+
+### Rollback if something breaks
+
+Two paths, pick based on whether you care about data written during your
+test.
+
+**(a) Reverse the migration with alembic** — preferred for routine
+rollback. Keeps any data you added during testing, just undoes the schema
+change.
+
+```bash
+# Stop the backend (Ctrl-C).
+alembic downgrade -1                 # walk back one revision
+# Or to a specific revision:
+alembic downgrade <previous-hash>    # use a prefix from `alembic history`
+
+./scripts/verify_db.sh data/app.db   # confirm you're back on the old head
+python run.py                        # restart on old code path
+```
+
+This requires the migration's `downgrade()` function to be correct. If
+`downgrade()` is missing or broken, fall through to (b).
+
+**(b) Restore the backup file** — heavier; discards everything that
+happened in the DB since step 1's backup. Use this if `downgrade()` is
+broken or you just want a clean reset.
+
+```bash
+# Stop the backend (Ctrl-C).
+# Strip SQLite WAL/journal sidecars belonging to the live DB:
+rm -f data/app.db-wal data/app.db-shm data/app.db-journal
+cp data/app.db.backup.<timestamp> data/app.db
+python run.py
+```
+
+### What `./scripts/migrate.sh` actually does
+
+It's a one-liner around `alembic upgrade head` that activates the venv
+first. The backend's lifespan calls the same `alembic upgrade head` via
+`run_migrations()` at boot — running the script manually just applies the
+migrations **before** you start the backend so you can verify the schema
+without serving any requests.
+
+If you skip the script and just run `python run.py`, lifespan applies
+the migrations during startup. That's functionally equivalent except
+that you can't `verify_db.sh` between "apply" and "serve" — the backend
+is already serving by the time you'd run it.
+
+### What if the new migration was authored by me (not pulled)?
+
+Then you're in author flow, not test flow. See "Authoring migrations"
+near the bottom of this doc — same scripts, plus you'll generate the
+revision file first with `alembic revision --autogenerate`.
 
 ---
 
@@ -472,10 +578,14 @@ alembic revision --autogenerate -m "describe the change"
 #    NOT NULL columns added to existing populated tables MUST have a
 #    server_default — otherwise the ALTER will fail.
 
-# 4. Test it locally
+# 4. Test it locally. Same scripts as the "Test a migration locally"
+#    section above — backup first, then apply/downgrade/re-apply to
+#    confirm the round-trip works against your own data.
+./scripts/backup_db.sh data/app.db
 ./scripts/migrate.sh                     # apply
 alembic downgrade -1                     # verify rollback works
 ./scripts/migrate.sh                     # re-apply
+./scripts/verify_db.sh data/app.db       # confirm schema at head
 
 # 5. Commit the migration file alongside the model change.
 ```
