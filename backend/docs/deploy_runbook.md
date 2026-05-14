@@ -209,6 +209,60 @@ Then you're in author flow, not test flow. See "Authoring migrations"
 near the bottom of this doc — same scripts, plus you'll generate the
 revision file first with `alembic revision --autogenerate`.
 
+### Troubleshooting: `table <X> already exists` on a pre-alembic DB
+
+Symptom — `./scripts/migrate.sh` fails with:
+
+```
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError)
+  table agent_definitions already exists
+[SQL: CREATE TABLE agent_definitions (...)]
+```
+
+Cause — your local `data/app.db` predates alembic. The tables exist
+from the old `SQLModel.metadata.create_all()` path, but there's no
+`alembic_version` row marking them as migrated. So when alembic
+walks the chain from "no revision" it starts at the baseline
+migration and tries to `CREATE TABLE` something that's already there.
+
+The auto-stamp logic that fixes this (`app/database.py:run_migrations()`,
+the `[alembic_auto_stamp]` log line) only runs inside two entrypoints:
+
+- App lifespan when you `python run.py`
+- `python scripts/bootstrap.py`
+
+It does **not** run inside `./scripts/migrate.sh` — that script
+shells out to `alembic upgrade head` directly.
+
+Fix — manually stamp the baseline, then re-run the migration:
+
+```bash
+cd backend && source .venv/bin/activate
+
+# Mark the existing tables as already-migrated at the baseline revision.
+# This writes a row to alembic_version; it does not run any DDL.
+alembic stamp b101e3c2cba5
+
+# Now upgrade head — only the migrations AFTER baseline will run.
+./scripts/migrate.sh
+
+# Verify.
+./scripts/verify_db.sh data/app.db
+```
+
+After the stamp + upgrade, `alembic current` should show the latest
+revision tagged `(head)`. Future migrate.sh runs will work normally
+because alembic_version is now populated.
+
+Alternative — just `python run.py` once; lifespan does the same thing
+automatically (look for `[alembic_auto_stamp]` in the startup logs).
+The manual stamp is cleaner if you want to verify the schema with
+`verify_db.sh` before serving any requests.
+
+The baseline revision id `b101e3c2cba5` is pinned in
+`app/database.py:_BASELINE_REVISION` — if you change it there, change
+it in this section too.
+
 ---
 
 ## Standard deploy (no migrations)
@@ -560,6 +614,13 @@ You'll see this log line exactly once:
 If you see it on a subsequent deploy, something's wrong — the
 `alembic_version` table got dropped between deploys. Investigate before
 proceeding.
+
+**Local-machine gotcha.** The auto-stamp only runs inside lifespan and
+`scripts/bootstrap.py`. If you run `./scripts/migrate.sh` directly on a
+local DB that pre-dates alembic, you'll get `OperationalError: table X
+already exists` because the baseline migration tries to `CREATE TABLE`
+on existing tables. See "Test a migration locally → Troubleshooting:
+`table already exists` on a pre-alembic DB" for the manual stamp fix.
 
 ---
 
