@@ -33,6 +33,10 @@ backend/uploads/
 # and is rewritten on app startup / agent CRUD. Don't commit.
 backend/langgraph.json
 
+# LangGraph dev server's local runtime cache (in-memory checkpointer
+# pickles, etc.) — regenerated each `langgraph dev` boot. Don't commit.
+backend/.langgraph_api/
+
 # Backend log tap file used transiently during UI tests.
 /tmp/finchat-backend.log
 
