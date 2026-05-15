@@ -73,7 +73,7 @@ function MarkdownField({
 
 function TextField({
   label, value, onChange, placeholder = '',
-  multiline = false, rows = 6, autoGrow = false, minRows = 6,
+  multiline = false, rows = 10, autoGrow = false, minRows = 10,
 }) {
   // Auto-growing textareas stay "always expanded" — grow with content so
   // long system prompts never hide behind a scrollbar. Line-count-based
@@ -85,12 +85,15 @@ function TextField({
     <label className="block">
       <span className="text-xs text-gray-600 font-medium">{label}</span>
       {multiline ? (
+        // resize-y + overflow-auto: the corner-drag handle lets users
+        // pull the box as tall as the viewport; content scrolls within
+        // the chosen size. min-h ensures the initial state is roomy.
         <textarea
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           rows={effectiveRows}
-          className="mt-1 w-full px-3 py-2 text-sm leading-snug border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-200 resize-y"
+          className="mt-1 w-full px-3 py-2 text-sm leading-snug border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-200 resize-y overflow-auto min-h-[10rem] max-h-[80vh]"
         />
       ) : (
         <input
