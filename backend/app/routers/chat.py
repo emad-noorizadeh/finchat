@@ -222,6 +222,7 @@ async def send_message(
                     )
                     if not _pending:
                         yield sse(error_event("No pending confirmation to resume."))
+                        turn_exit_reason = "resume_no_pending"
                         return
 
                     # Update confirmation widget status as side effect
@@ -420,6 +421,11 @@ async def send_message(
                                 channel=req.channel,
                             )
                     yield sse(interrupt_event(interrupt_value))
+                    if isinstance(interrupt_value, dict):
+                        kind = interrupt_value.get("kind") or ""
+                        turn_exit_reason = f"interrupt:{kind}" if kind else "interrupt"
+                    else:
+                        turn_exit_reason = "interrupt"
                     return
 
                 # Append knowledge sources if available — suppress in voice (markdown is bad for TTS)

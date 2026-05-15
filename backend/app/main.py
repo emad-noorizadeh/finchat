@@ -81,7 +81,18 @@ async def lifespan(app: FastAPI):
                 exc_info=True,
             )
 
+    # Deterministic "backend is ready" signal. Uvicorn's own
+    # "Application startup complete" log routes through `uvicorn.error`
+    # and on some configurations gets filtered out after our dictConfig
+    # takes over; this app-side line is grep-stable across configs.
+    # Pair it with the matching shutdown log after the yield.
+    import logging
+    _main_logger = logging.getLogger(__name__)
+    _main_logger.info("Application startup complete — backend ready")
+
     yield
+
+    _main_logger.info("Application shutdown — lifespan exiting")
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
