@@ -1,5 +1,13 @@
 import { Handle, Position } from 'reactflow'
 
+// Handle styling — green = source (drag FROM), blue = target (drop ON).
+// Slightly larger than reactflow's default 6px so they're easier to grab;
+// hover grows them further and adds a ring for unambiguous targeting.
+// The `!` prefix overrides reactflow's injected default styles.
+const HANDLE_BASE = '!w-2.5 !h-2.5 !border-2 !border-white transition-all duration-100 hover:!w-3.5 hover:!h-3.5 hover:!ring-2 cursor-crosshair'
+const HANDLE_SOURCE = `${HANDLE_BASE} !bg-emerald-500 hover:!ring-emerald-300`
+const HANDLE_TARGET = `${HANDLE_BASE} !bg-blue-500 hover:!ring-blue-300`
+
 const STYLE = {
   parse_node:     { bg: 'bg-sky-50',     border: 'border-sky-300',     text: 'text-sky-800',     icon: '📥', title: 'Parse' },
   condition_node: { bg: 'bg-amber-50',   border: 'border-amber-300',   text: 'text-amber-800',   icon: '🔀', title: 'Condition' },
@@ -70,13 +78,17 @@ export default function SubAgentNode({ id, type, data, selected }) {
       {/* Six handles per node — the canvas picks which ones each edge uses
           based on the source/target node positions in the two-column
           dispatcher layout. Side handles are split on Y (40% / 60%) so
-          forward and loop edges between the same pair don't overlap. */}
-      <Handle type="target" position={Position.Top} id="t" className="!bg-gray-400" />
-      <Handle type="source" position={Position.Bottom} id="b" className="!bg-gray-400" />
-      <Handle type="source" position={Position.Left} id="l-out" style={{ top: '60%' }} className="!bg-gray-300" />
-      <Handle type="target" position={Position.Left} id="l-in" style={{ top: '40%' }} className="!bg-gray-300" />
-      <Handle type="source" position={Position.Right} id="r-out" style={{ top: '60%' }} className="!bg-gray-300" />
-      <Handle type="target" position={Position.Right} id="r-in" style={{ top: '40%' }} className="!bg-gray-300" />
+          forward and loop edges between the same pair don't overlap.
+
+          Colour convention: sources are green (drag FROM), targets are
+          blue (drop ON). Handles grow + show a ring on hover so users
+          can see exactly where to grab. */}
+      <Handle type="target" position={Position.Top} id="t" className={HANDLE_TARGET} />
+      <Handle type="source" position={Position.Bottom} id="b" className={HANDLE_SOURCE} />
+      <Handle type="source" position={Position.Left} id="l-out" style={{ top: '60%' }} className={HANDLE_SOURCE} />
+      <Handle type="target" position={Position.Left} id="l-in" style={{ top: '40%' }} className={HANDLE_TARGET} />
+      <Handle type="source" position={Position.Right} id="r-out" style={{ top: '60%' }} className={HANDLE_SOURCE} />
+      <Handle type="target" position={Position.Right} id="r-in" style={{ top: '40%' }} className={HANDLE_TARGET} />
       <div className="flex items-center gap-1.5 justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-base leading-none">{style.icon}</span>

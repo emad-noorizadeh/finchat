@@ -286,7 +286,11 @@ function ParseNodeEditor({ data, update }) {
 
 // --- Condition node (dispatcher) ---
 
-function ConditionNodeEditor({ data, update, edges, reorderEdges, updateEdgePredicate }) {
+function ConditionNodeEditor({ data, update, edges, reorderEdges, updateEdgePredicate, addEdge, nodeIds }) {
+  const existingTargets = new Set((edges || []).map((e) => e.target))
+  const candidates = [...(nodeIds || []).filter((id) => !existingTargets.has(id))]
+  if (!existingTargets.has('END')) candidates.push('END')
+  const [pickerOpen, setPickerOpen] = useState(false)
   return (
     <div className="space-y-3">
       <TextField label="Node label" value={data.label} onChange={(v) => update('label', v)} />
@@ -297,7 +301,7 @@ function ConditionNodeEditor({ data, update, edges, reorderEdges, updateEdgePred
       </div>
       <Section title="Outgoing edges (priority = array order)">
         {(edges || []).length === 0 && (
-          <p className="text-xs text-gray-400 italic">No outgoing edges. Connect this to targets on the canvas.</p>
+          <p className="text-xs text-gray-400 italic">No outgoing edges yet. Use the button below, or drag from this node's green dot on the canvas.</p>
         )}
         {(edges || []).map((e, idx) => (
           <div key={e.id} className="border border-gray-200 rounded p-2 space-y-1 bg-gray-50">
@@ -324,6 +328,48 @@ function ConditionNodeEditor({ data, update, edges, reorderEdges, updateEdgePred
             />
           </div>
         ))}
+        {/* Panel-driven edge creation — avoids the drag-from-tiny-handle
+            UX for the common condition-fan-out case. Lists only targets
+            this condition doesn't already point at. */}
+        <div className="pt-1">
+          {!pickerOpen ? (
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              disabled={!addEdge || candidates.length === 0}
+              className="w-full text-[12px] px-2 py-1.5 border border-dashed border-emerald-400 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {candidates.length === 0 ? 'All nodes already connected' : '+ Add outgoing edge'}
+            </button>
+          ) : (
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-gray-600">Pick target</label>
+              <select
+                autoFocus
+                onChange={(ev) => {
+                  const target = ev.target.value
+                  if (target) {
+                    addEdge?.(target)
+                    setPickerOpen(false)
+                  }
+                }}
+                onBlur={() => setPickerOpen(false)}
+                className="w-full text-[12px] px-2 py-1.5 border border-gray-300 rounded bg-white"
+                defaultValue=""
+              >
+                <option value="" disabled>Choose…</option>
+                {candidates.map((id) => (
+                  <option key={id} value={id}>{id === 'END' ? '→ END (terminate)' : `→ ${id}`}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setPickerOpen(false)}
+                className="text-[10px] text-gray-500 hover:text-gray-700"
+              >cancel</button>
+            </div>
+          )}
+        </div>
       </Section>
       <p className="text-[11px] text-gray-400 italic">
         At runtime, the first edge whose predicate is true wins. Use `has(x)`, `is_empty(x)`, `==`, `!=`, `{'&&'} / ||`, `!`.
@@ -905,6 +951,24 @@ export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNod
     onEdgesUpdate?.(next)
   }
 
+  // Panel-driven edge creation. Appends a minimal graphDef-shape edge from
+  // the currently-selected node to `targetId`. sourceHandle='b' / targetHandle='t'
+  // mirror what onConnect in AgentCanvas would emit for a fresh top-bottom
+  // drag; the canvas's pickHandles() will reroute side-handles automatically
+  // if the layout suggests it after re-derive.
+  const addEdge = (targetId) => {
+    if (!targetId) return
+    const newEdge = {
+      id: `e_${Date.now()}`,
+      source: node.id,
+      target: targetId,
+      sourceHandle: 'b',
+      targetHandle: 't',
+      predicate: null,
+    }
+    onEdgesUpdate?.([...(allEdges || []), newEdge])
+  }
+
   return (
     <div className="p-4 space-y-4 overflow-y-auto h-full">
       <div className="space-y-0.5 sticky top-0 bg-white -mx-4 pl-4 pr-20 py-2 border-b border-gray-100 z-10">
@@ -919,7 +983,9 @@ export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNod
         <ConditionNodeEditor data={node.data} update={update}
           edges={outgoingEdges}
           reorderEdges={reorderEdges}
-          updateEdgePredicate={updateEdgePredicate} />
+          updateEdgePredicate={updateEdgePredicate}
+          addEdge={addEdge}
+          nodeIds={nodeIds} />
       )}
       {node.type === 'tool_call_node' && (
         <ToolCallNodeEditor data={node.data} update={update} nodeIds={nodeIds} agentName={agentName} />
