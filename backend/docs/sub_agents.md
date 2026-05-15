@@ -1,31 +1,38 @@
-# Sub-agents — deterministic template-backed architecture
+# Sub-agents — template-backed, LangGraph-compiled
 
-Every sub-agent is a **template** (JSON) that the ProcedureRuntime drives
-deterministically. No LLM orchestrates the flow; slot extraction, corrections,
-escape handling, and confirm gates are pure-Python building blocks. The
-orchestrator LLM is ejected once a regulated template starts.
+Every sub-agent is a **JSON template** that compiles into a **LangGraph
+`StateGraph`** at first use. The main orchestrator's Planner calls the
+sub-agent as a tool; the sub-agent then drives its own internal graph
+deterministically (no LLM picks routing — predicates do).
+
+This doc is the high-level overview. For the full authoring story
+(building a template via the UI, the DSLs, the regulated-vs-not deploy
+flow), read `extending_tools_and_agents.md`. For deploy ops, read
+`deploy_runbook.md`.
 
 Related docs:
-- `backend/docs/subagent_rollout.md` — flag-gated rollout + rollback runbook
-- `backend/docs/subagent_followups.md` — deferred items with PR/phase tags
-- `backend/docs/architecture.md` — outer orchestrator (Planner + Presenter)
+- `extending_tools_and_agents.md` — authoring guide (UI walkthrough, DSLs, deploy)
+- `architecture.md` — system-wide reference (main orchestrator + sub-agent file map)
+- `deploy_runbook.md` — migrations, backup/restore, agent template imports
+- `transfer_flow.md` — worked example: the Transfer Money sub-agent
 
 ## Why this shape
 
-Widgets let chat sub-agents hide under a form; voice has no form. The old
-LLM-driven Transfer sub-agent relied on conversational judgment at every
-step (what to ask, how to parse, when to confirm, whether to execute).
-That produces malformed tool payloads, skipped confirmations, and dead
-loops — bad UX even when the tool itself is safe.
+Widgets let chat sub-agents hide tedious form-filling under a single
+widget; voice has no form. The previous LLM-driven Transfer sub-agent
+relied on conversational judgment at every step (what to ask next, how
+to parse the reply, when to confirm, whether to execute). That produced
+malformed tool payloads, skipped confirmations, and dead loops — bad
+UX even when the underlying tool was safe.
 
-v2 splits responsibility:
+The template-backed design splits responsibility four ways:
 
 | Layer | Role |
 |---|---|
-| Tool | Owns business rules, auth, limits, fraud — **unchanged**. |
-| Template | Declares procedure shape: slots, confirm summary, tool to execute. |
-| Sub-agent runtime | Drives templates deterministically. No LLM. |
-| Orchestrator | Routes user intent to sub-agents and paraphrases their returns. |
+| Tool | Owns business rules, auth, limits, fraud — unchanged from the planner's perspective. |
+| Template | Declares the procedure shape: nodes (parse / condition / interrupt / tool_call / llm / response), edges with predicates. |
+| Sub-agent runtime | Drives the compiled `StateGraph` deterministically. Routing is by Predicate DSL, not by an LLM choosing the next step. |
+| Orchestrator (Planner) | Routes user intent to sub-agents (via `tool_search` or `always_load`) and paraphrases their return values. |
 
 ## Graph-level view
 
@@ -33,201 +40,229 @@ v2 splits responsibility:
 User
   │ POST /api/chat/sessions/:id/messages
   ▼
-Main orchestrator (Planner + Presenter)
-  │ calls transfer_agent tool
+Main orchestrator (Planner + Presenter, app/agent/graph.py)
+  │ calls e.g. transfer_money or card_advisor tool
   ▼
-TransferAgentTool.execute
-  │ loads domestic_transfer_v1 template
+{Sub-agent}Tool.execute  (e.g. TransferAgentTool, DynamicSubAgentTool)
+  │ loads the (agent_name, channel) → template, compiles it once (cached)
   ▼
-ProcedureRuntime
-  │ drives nodes via LangGraph interrupt() per user turn
+Inner StateGraph (compiled by app/agents/template_compiler.py)
+  │ runs entry → … → response_node, pausing at interrupt_node for user input
   ▼
-slot_collector → confirm_step → execute_tool
-                                   │
-                                   ▼
-                               transfer_money service (business rules)
+ToolResult returned to the Planner — widget, glass text, or to_orchestrator text
 ```
 
-`interrupt()` inside the tool's execute pauses the outer graph. On resume,
-the tool's execute re-runs from the top; each `interrupt()` call returns
-its cached resume value from LangGraph's per-task resume list. The runtime
-is deterministic so replay produces the same sequence of prompts.
+Each `interrupt_node` ends the inner graph cleanly; the outer driver
+saves the inner state, re-presents the prompt to the user, then re-enters
+the inner graph from the entry node with the user's reply appended and
+the accumulated state restored. See `app/agents/runtime.py` for the
+per-thread state registry.
 
-## Template shape
+## Node grammar (v4)
 
-File: `app/agents/templates/*.json`. One file per template. Loaded at module
-import via `app/agents/templates/__init__.py` → validated via
-`app/agents/template_loader.py`.
+Seven node types, registered in `app/agents/nodes/`:
+
+| Type | Purpose |
+|---|---|
+| `parse_node` | Extract values from the latest user utterance into `state.variables`. Two modes: `regex` (deterministic, uses registered parsers like `money` / `yes_no` / `last4`) or `llm` (structured output via `llm_parse`). |
+| `condition_node` | Pure-Python routing. Has multiple outgoing edges, each carrying a Predicate-DSL expression. First-match-wins. **No LLM**. |
+| `interrupt_node` | Pauses execution, surfaces a prompt to the user, ends the inner graph. The outer driver handles the resume. `targets_slot` lets the parse_node on the next entry know which slot the user is answering. |
+| `tool_call_node` | Dispatches an `AgentTool.dispatch(action, params, context)`. `output_var` captures the tool's return into `state.variables`. Supports `post_write` for flat scalar state writes on success. |
+| `llm_node` | Free-form LLM call with a system prompt + bound tool subset. Used by non-regulated sub-agents that need fuzzy interpretation (e.g. `card_advisor`'s recommendation step). |
+| `tool_node` | Executes any `tool_calls` emitted by the preceding `llm_node`. No configuration — pure dispatcher. |
+| `response_node` | Terminal. Four `return_mode`s: `widget` / `glass` / `to_presenter` (slot writeback) / `to_orchestrator` (text template the parent LLM paraphrases). |
+
+A typical regulated flow: `parse_node → condition_node → (tool_call_node / interrupt_node)+ → response_node`.
+
+## Template anatomy
+
+File: `app/agents/templates/*.json` (seed) and the `sub_agent_templates`
+DB table (runtime source of truth, populated by bootstrap or admin
+import). Loaded via `app/agents/template_loader.py` → validated →
+compiled by `app/agents/template_compiler.py`.
 
 ```json
 {
-  "name": "domestic_transfer_v1",
-  "agent_name": "transfer_agent",
+  "name": "card_advisor_chat",
+  "agent_name": "card_advisor",
+  "channel": "chat",
   "template_schema_version": 1,
-  "is_regulated": true,
-  "supported_channels": ["chat", "voice"],
+  "is_regulated": false,
+  "supported_channels": ["chat"],
   "suspend_resume_allowed": false,
-  "locked_for_business_user_edit": true,
-  "unsupported_channel_message": "Transfers aren't available on this channel.",
+  "locked_for_business_user_edit": false,
+  "context": "# Card comparison\n\n| Card | Cashback | Annual fee | …",
+  "entry_node": "parse_open",
   "nodes": [
-    { "id": "collect", "type": "slot_collector", "data": { ... } },
-    { "id": "confirm", "type": "confirm_step",  "data": { ... } },
-    { "id": "execute", "type": "execute_tool",  "data": { "tool": "transfer_money" } }
+    { "id": "parse_open", "type": "parse_node",     "data": { "mode": "llm", "system_prompt": "…", "writes": { "interest": "interest" } } },
+    { "id": "ask",        "type": "interrupt_node", "data": { "prompt_template": "What matters most to you?", "targets_slot": "interest" } },
+    { "id": "dispatch",   "type": "condition_node", "data": { "label": "Dispatch on interest" } },
+    { "id": "rec_cash",   "type": "response_node",  "data": { "return_mode": "to_orchestrator", "text_template": "Recommend the Everyday Cash Rewards card. …" } }
   ],
   "edges": [
-    { "source": "collect", "target": "confirm" },
-    { "source": "confirm", "target": "execute" }
+    { "source": "parse_open", "target": "ask",      "predicate": "!has(variables.interest)" },
+    { "source": "parse_open", "target": "dispatch", "predicate": "has(variables.interest)" },
+    { "source": "ask",        "target": "parse_open" },
+    { "source": "dispatch",   "target": "rec_cash", "predicate": "variables.interest == \"cashback\"" }
   ]
 }
 ```
 
-## Node types (v2)
+## Per-agent context (knowledge blob)
 
-Four types, registered in `app/agents/nodes/`:
+`SubAgentTemplate.context` is a Markdown blob that travels with the
+template. The compiler injects it as `_agent_context` into each node's
+data dict; `llm_node` and `parse_node(mode=llm)` auto-prepend it to
+their system prompt unless the node sets `data.include_context = false`.
 
-### `slot_collector`
-Collects N typed slots through a deterministic loop. Each slot has:
-- `name`, `type` (one of `money`, `account_ref`, `yes_no`, `enum`, `date`)
-- `prompt` and optional `correction_prompt` (correction-aware re-ask)
-- `repeat_back` (boolean; forced true on `money`)
-- `min_confidence` (0.0–1.0)
-- Optional `validators: ["positive", "within_daily_limit"]`
-- Optional `cross_slot_validators: ["different_from:from_account"]`
-- For `account_ref`: `options_source` + `options_depends_on`
+Use it for domain facts that every LLM call in the sub-agent benefits
+from — card comparison tables, eligibility rules, product specs. The
+runtime treats it as opaque text. Authored via the **Context** tab in
+the Agent Builder UI.
 
-### `confirm_step`
-Renders a summary (chat: `confirmation_request` widget; voice: glass),
-captures yes/no. Four edge outcomes:
-- `on_confirm` — user confirmed
-- `on_decline` — user declined
-- `on_modify` — user tried to correct a slot (routes through correction cascade)
-- `on_cancel` — user aborted
+When to reach for this vs. an LLM-side `knowledge_search` tool:
+- **Context tab** — small, static, every-turn-relevant knowledge.
+- **`knowledge_search`** — large corpus, targeted lookups, paid per call.
 
-### `disambiguation_step`
-Pick-one-from-a-resolved-list. Different from slot_collector — no typed
-extraction from free text, user picks by index or label.
+See `extending_tools_and_agents.md` → "Per-agent context (knowledge
+blob)" for the full authoring story.
 
-### `execute_tool`
-Terminal. Invokes a real tool with the collected slots. The tool is the
-final authority on business rules; its return shapes the `SubAgentResult`.
+## Runtime prompt substitution
 
-## Slot type library
+All four template-style fields are resolved by the shared
+`app/utils/templates.py:resolve_templates(value, state)`:
 
-`app/agents/slot_types/`. Engineer-owned. Types carry their own policy:
+- `interrupt_node.prompt_template`
+- `tool_call_node.params_template`
+- `response_node.text_template` / `glass_template` / `widget.data_template`
+- **`llm_node.system_prompt` / `parse_node(mode=llm).system_prompt`** (added in PR 2)
 
-| Type | Tiers | Policy |
-|---|---|---|
-| `money` | regex | `repeat_back=True` forced; `positive` validator; min_conf 0.85 |
-| `account_ref` | last-4 regex + type-hint | options-aware; no repeat_back |
-| `yes_no` | regex | binary; no repeat_back |
-| `enum` | label + index match | options-aware |
-| `date` | regex (ISO, MM/DD/YYYY) | `repeat_back=True` |
+Resolution semantics:
+- `{{some.path}}` (exact-match) → raw passthrough (preserves type)
+- `"Hello {{name}}"` (embedded) → string substitution
+- Lookup: `state.variables` first, then top-level state (`user_id`,
+  `session_id`, `channel`)
+- Missing reference → empty string in substitution mode, `None` in
+  passthrough mode
 
-Adding a new type is a code change — reviewed, tested, deployed.
+The Agent Builder's Variables panel (next to the system_prompt
+textarea) lists every upstream-writable slot plus state scalars as
+click-to-insert buttons. Discovery is BFS over the edge graph from the
+current node back to the entry node.
+
+## State (`SubAgentState`)
+
+Lives in `app/agents/state.py`. Shape:
+
+- `messages` — `add_messages`-annotated; appended to as the inner graph
+  runs LLM calls
+- `variables` — slot scratchpad; written by `parse_node`, `tool_call_node`
+  (via `output_var`), `interrupt_node` (via `targets_slot`)
+- `channel` — pinned at procedure entry; predicates can branch on it
+- `session_id`, `user_id` — flowed in from the outer state
+- `main_context` — read-only view of the main orchestrator's
+  enrichment context (so sub-agents have access to profile + memory
+  facts when they need them)
+- `_terminal` — set by `response_node` to mark the inner graph as done
+- `_escape_kind` — set by the escape classifier to signal abort or
+  topic-change
 
 ## Escape classifier — runtime guarantee
 
-Every interrupt resume goes through `app/agents/escape.py` BEFORE slot
-extraction or confirm parsing. Three outcomes: `abort`, `topic_change`,
-`continue`. Phase 1 is keyword-only; Phase 2 adds a narrow LLM classifier.
-Authors cannot skip or disable this; the runtime enforces it on every node.
+`app/agents/escape.py`. Every user reply that re-enters the inner graph
+goes through the classifier BEFORE the parse_node sees it. Three
+outcomes:
 
-## Corrections model
+- `abort` — user wants out (e.g. "cancel", "nevermind") → graph routes
+  to the escape-target `response_node` (the one with
+  `data.is_escape_target = true`)
+- `topic_change` — user changed the subject → same escape route
+- `continue` — proceed with the parse as normal
 
-`app/agents/corrections.py`. Detects mid-flow value updates and cascades.
-Detection rules (first match wins):
-1. Keyword trigger: "actually", "wait", "change", "instead", "make it", …
-2. Unique-parse: utterance parses cleanly as a type held by exactly one
-   *filled* slot, AND that slot is NOT the current slot.
+Authors cannot disable this. The compiler injects a synthesized
+priority-0 edge on every condition_node that checks
+`has(variables._escape_kind)` and routes to the escape target. These
+runtime edges show up dashed orange in the canvas.
 
-Cascade wipes the corrected slot, anything with `options_depends_on` or
-`cross_slot_validators` referencing it, and (by default) everything
-declared after it. Pre-extracted value is threaded through so the same
-utterance isn't re-parsed twice.
+## Channel pinning
 
-## Structured return
+The channel is pinned at procedure entry. If the resume request comes
+in on a different channel than `supported_channels` allows, the runtime
+returns `CHANNEL_UNAVAILABLE` with the template's
+`unsupported_channel_message`.
 
-`app/agents/result.py` — `SubAgentResult(status, reason, collected_state,
-widget, glass, user_facing_message, audit_trail)`. Mapped in
-`TransferAgentTool._map_to_tool_result` to a `ToolResult` for the parent
-orchestrator. Tool failures declare `ToolResult.error_category`; runtime
-maps category → reason.
+Interrupt payload (surfaced via the SSE `interrupt` event from the
+chat router):
 
-## Channel handling
-
-Channel is pinned at procedure entry. If the resume channel differs and
-the template's `supported_channels` excludes it → `CHANNEL_UNAVAILABLE`
-with the template's `unsupported_channel_message`.
-
-Interrupt payload (exposed via SSE `interrupt` event):
 ```json
-{ "kind": "slot_prompt", "prompt": "<text>", "channel": "chat" | "voice" }
+{
+  "kind": "slot_prompt",
+  "prompt": "What's the transfer amount?",
+  "channel": "chat"
+}
 ```
 
 Resume: `POST /api/chat/sessions/:id/messages` with `type="resume"` and
-`data={"utterance":"..."}`.
+`data = { "utterance": "...", "widget_instance_id": "..." }`.
 
-## Locked principles (cumulative through v5 plan)
+## Locked principles
 
-1. Tools own business rules; sub-agents own experience.
-2. Step-up authentication is NEVER a sub-agent concern.
-3. Escape classifier is a runtime guarantee — not a node, not skippable.
-4. Slot types carry their own policy; instance config cannot override type policy.
-5. Partial-slot persistence OFF by default; opt-in via `suspend_resume_allowed`.
-6. Orchestrator LLM is ejected during regulated templates.
-7. Corrections are first-class, not retry.
-8. Tool error categories required on failure; missing defaults to `SYSTEM`.
-9. Regulated templates cannot contain free-form LLM calls.
-10. Slot names may be exposed on `POLICY_BLOCK`; slot values may not.
-11. Log schema versioned from day one (`.v1` suffix on every event).
-12. Post-confirmation, procedure committed to tool return; procedure ends there.
-13. Tool error strings are internal; `user_facing_message` is orchestrator-facing.
-14. Sub-agents cannot invoke other sub-agents (Phase 1).
-15. Corrections detector runs on every utterance with unique-parse brake.
+1. **Tools own business rules; sub-agents own experience.**
+2. **Routing is deterministic.** Predicates, not LLMs, decide the next
+   node. `llm_node` exists for content generation, not orchestration.
+3. **Step-up auth is never a sub-agent concern** — the tool layer
+   handles it.
+4. **Escape classifier is a runtime guarantee** — not a node, not
+   skippable, applied to every resume.
+5. **Partial-slot persistence is OFF by default**; opt in via
+   `suspend_resume_allowed` on the template.
+6. **Regulated templates** (`is_regulated=true`) cannot use
+   `return_mode=to_presenter` and cannot contain free-form `llm_node`
+   (the loader rejects them at load time). They must use structured
+   output schemas.
+7. **`tool_call_node.post_write` must be a flat JSON-serializable
+   dict.** Nested data belongs in the tool's return + `output_var`.
+8. **Slot names may appear in `POLICY_BLOCK` reasons; slot values may
+   not.** The runtime redacts.
+9. **Log schema is versioned** — every event suffixed `.v1` /
+   `.v2` etc. so observability queries don't break silently.
+10. **Sub-agents cannot invoke other sub-agents** from within the inner
+    graph. Cross-sub-agent flow goes via `return_mode=to_orchestrator`
+    back through the Planner.
 
 ## Authoring
 
-**Phase 1: code.** Edit `app/agents/templates/*.json`, restart.
+**Non-regulated agents** — author in the Agent Builder UI
+(`/agents/builder`). Save & Deploy hits `POST /api/agents` →
+`upsert_template()` writes a `source='user'` row → `_refresh_registry()`
+rebuilds the sub-agent registry. No backend restart needed.
 
-**Phase 3: UI.** Template Config editor for business users (prompts, retry
-counts, limits). Template structural edits stay engineer-only.
-
-`/api/agents` returns templates as read-only metadata for the existing
-AgentBuilder UI. Write endpoints (POST/PUT/DELETE/deploy/disable) return
-HTTP 501 in Phase 1 with a pointer to Phase 3 template authoring.
-
-## What was deleted in v2 cutover
-
-| Removed | Replacement |
-|---|---|
-| `TransferChatAgent`, `TransferVoiceAgent` (hand-coded classes) | `domestic_transfer_v1.json` template |
-| `DynamicSubAgent` (DB-loaded legacy-graph agents) | File-based templates via `app/agents/templates/__init__.py` |
-| `BaseSubAgent` class + `_build_default_graph` + `_make_*_node` handlers | `ProcedureRuntime` + typed node handlers in `app/agents/nodes/` |
-| `default_graph_definition()` (legacy 3-node JSON factory) | Default v2 graph in `AgentBuilder.jsx:buildDefaultGraph` |
-| `request_confirmation` tool + `interrupt()` inside `_tool_node` | `confirm_step` node |
-| Legacy node types: `llm`, `tool`, `response`, `condition`, `custom_tool`, `extra_llm` | `slot_collector`, `confirm_step`, `disambiguation_step`, `execute_tool` |
-| Frontend node components for legacy types | `SlotCollectorNode`, `ConfirmStepNode`, `DisambiguationStepNode`, `ExecuteToolNode` |
-| `AgentDefinition` seeding + DB loading flow | Templates live in files; no DB bootstrap |
-| `/api/agents` CRUD write endpoints | Phase 1: 501. Phase 3: template authoring UI. |
+**Regulated agents** — edit the JSON file in `app/agents/templates/`,
+PR + code review, then apply via the admin import endpoint after the
+new image is deployed: `POST /api/agents/admin/import-file/{filename}`
+or the helper `backend/scripts/import_seed.sh`. The new image's file
+content is NOT auto-deployed on boot — bootstrap only runs against an
+empty DB. See `deploy_runbook.md` → "Agent template deploys" for the
+full deploy flow.
 
 ## File map
 
 | Concern | File |
 |---|---|
-| Procedure runtime (deterministic driver) | `app/agents/procedure_runtime.py` |
-| Template JSON schema + validator | `app/agents/template_loader.py` |
-| Template discovery (file-based) | `app/agents/templates/__init__.py` |
-| Domestic Transfer v1 template | `app/agents/templates/domestic_transfer_v1.json` |
-| Node registry + handlers | `app/agents/nodes/{registry,slot_collector,confirm_step,disambiguation_step,execute_tool}.py` |
-| Slot type library | `app/agents/slot_types/{base,yes_no,money,account_ref,enum,date_type}.py` |
-| Options resolvers | `app/agents/resolvers/__init__.py` |
-| Escape classifier | `app/agents/escape.py` |
-| Corrections detector + cascade | `app/agents/corrections.py` |
-| Structured return types | `app/agents/result.py` |
-| Sub-agent registry | `app/agents/__init__.py` |
-| TransferAgentTool (tool surface) | `app/tools/transfer_tool.py` |
-| Transfer service (tool-layer business rules) | `app/tools/transfer_actions.py`, `app/services/transfer_service.py` |
-| Templates API (read-only) | `app/routers/agents.py` |
+| Template → `StateGraph` compiler (runtime-injected escape + retry edges, `_agent_context` injection) | `app/agents/template_compiler.py` |
+| Template validator + `LoadedTemplate` dataclass (`name`, `context`, regulated flags, etc.) | `app/agents/template_loader.py` |
+| DB-backed template store (read / upsert / import) | `app/agents/template_store.py` |
+| Bootstrap-from-files + agent registry init | `app/agents/templates/__init__.py`, `app/agents/__init__.py` |
+| Node factories (parse / condition / interrupt / tool_call / llm / tool / response) | `app/agents/nodes/` |
+| Predicate DSL compiler | `app/agents/predicates.py` |
+| `{{var}}` substitution resolver | `app/utils/templates.py` |
+| Per-thread driver runtime (interrupt resume, accumulated inner state) | `app/agents/runtime.py` |
+| Escape classifier (`abort` / `topic_change` / `continue`) | `app/agents/escape.py` |
+| Regex parsers + LLM structured-output helper | `app/agents/parsers/` |
+| Seed JSON templates | `app/agents/templates/*.json` |
+| Sub-agent template DB model | `app/models/sub_agent_template.py` |
+| Tool wrappers that dispatch a sub-agent from the Planner | `app/tools/refund_tool.py`, `app/tools/transfer_tool.py`, `app/tools/dynamic_sub_agent_tool.py` |
+| `/api/agents` CRUD + admin import + patterns | `app/routers/agents.py` |
 | Frontend builder | `frontend/src/components/agents/AgentBuilder.jsx` |
-| Frontend canvas + property panel | `frontend/src/components/agents/graph/{AgentCanvas,NodePropertiesPanel,AddNodeMenu}.jsx` |
-| Frontend node components | `frontend/src/components/agents/graph/nodes/{SlotCollectorNode,ConfirmStepNode,DisambiguationStepNode,ExecuteToolNode}.jsx` |
+| Frontend canvas + property panel | `frontend/src/components/agents/graph/AgentCanvas.jsx`, `NodePropertiesPanel.jsx`, `AddNodeMenu.jsx` |
+| Frontend node component (one component, dispatched by type) | `frontend/src/components/agents/graph/nodes/SubAgentNode.jsx` |
