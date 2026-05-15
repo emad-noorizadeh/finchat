@@ -73,11 +73,13 @@ function MarkdownField({
 
 function TextField({
   label, value, onChange, placeholder = '',
-  multiline = false, rows = 10, autoGrow = false, minRows = 10,
+  multiline = false, rows = 10, autoGrow = true, minRows = 10,
 }) {
-  // Auto-growing textareas stay "always expanded" — grow with content so
-  // long system prompts never hide behind a scrollbar. Line-count-based
-  // heuristic is good enough without a ResizeObserver dance.
+  // Auto-growing textareas stay "always expanded" — the row count tracks
+  // the line count of the current value, so long prompts / templates
+  // never hide behind an inner scrollbar. The parent NodePropertiesPanel
+  // already has overflow-y-auto, so overflow is handled at the panel
+  // level instead of inside each textarea.
   const effectiveRows = multiline && autoGrow
     ? Math.max(minRows, (String(value || '').split('\n').length) + 1)
     : rows
@@ -85,15 +87,16 @@ function TextField({
     <label className="block">
       <span className="text-xs text-gray-600 font-medium">{label}</span>
       {multiline ? (
-        // resize-y + overflow-auto: the corner-drag handle lets users
-        // pull the box as tall as the viewport; content scrolls within
-        // the chosen size. min-h ensures the initial state is roomy.
+        // resize-y is still there so the user can manually shrink the
+        // textarea if it grew larger than they want. No max-height: when
+        // a multi-paragraph prompt is pasted the box expands to fit and
+        // the panel scrolls.
         <textarea
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           rows={effectiveRows}
-          className="mt-1 w-full px-3 py-2 text-sm leading-snug border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-200 resize-y overflow-auto min-h-[10rem] max-h-[80vh]"
+          className="mt-1 w-full px-3 py-2 text-sm leading-snug border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-200 resize-y min-h-[10rem]"
         />
       ) : (
         <input

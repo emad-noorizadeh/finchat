@@ -492,8 +492,8 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
                   <textarea
                     value={form.description}
                     onChange={(e) => setField('description', e.target.value)}
-                    rows={12}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500 resize-y overflow-auto min-h-[12rem] max-h-[80vh] whitespace-pre-wrap"
+                    rows={Math.max(12, (form.description || '').split('\n').length + 1)}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500 resize-y min-h-[12rem] whitespace-pre-wrap"
                   />
                 </div>
                 <div>
@@ -501,8 +501,8 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
                   <textarea
                     value={form.search_hint}
                     onChange={(e) => setField('search_hint', e.target.value)}
-                    rows={8}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500 resize-y overflow-auto min-h-[8rem] max-h-[60vh] whitespace-pre-wrap"
+                    rows={Math.max(8, (form.search_hint || '').split('\n').length + 1)}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500 resize-y min-h-[8rem] whitespace-pre-wrap"
                   />
                 </div>
               </>
