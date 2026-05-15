@@ -262,6 +262,14 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSe
   const rawEdges = graphDef?.edges || []
   const positions = ensurePositions(rawNodes, rawEdges)
   const positionById = new Map(rawNodes.map((n, i) => [n.id, positions[i]]))
+  const typeById = new Map(rawNodes.map((n) => [n.id, n.type]))
+  // Per-source authored-edge counts. Used to drop the priority badge on
+  // single-out edges where #N adds noise and to keep it on condition
+  // fan-outs where order is load-bearing.
+  const outDegreeBySource = new Map()
+  for (const e of rawEdges) {
+    outDegreeBySource.set(e.source, (outDegreeBySource.get(e.source) || 0) + 1)
+  }
 
   const [nodes, setNodes, onNodesChange] = useNodesState(
     rawNodes.map((n, i) => ({
@@ -312,7 +320,22 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSe
         strokeWidth: 1,
       },
       labelBgPadding: [6, 3],
-      label: e.label || (e.predicate ? `[${e._i ?? 0}] ${truncate(e.predicate, 32)}` : undefined),
+      // Label rule:
+      //   1. User-set label always wins.
+      //   2. Otherwise, show a small "#N" priority badge ONLY when the
+      //      source is a condition_node with more than one outgoing edge
+      //      (the case where execution order is load-bearing).
+      //   3. Otherwise no label — the predicate lives in the EdgeEditor,
+      //      not on the canvas, so we don't clutter the graph.
+      label: (() => {
+        if (e.label) return e.label
+        const sourceType = typeById.get(e.source)
+        const outCount = outDegreeBySource.get(e.source) || 0
+        if (sourceType === 'condition_node' && outCount > 1) {
+          return `#${e._i ?? 0}`
+        }
+        return undefined
+      })(),
       style: {
         stroke,
         strokeWidth: isLoop ? 1.25 : 1.5,
