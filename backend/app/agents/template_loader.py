@@ -230,7 +230,7 @@ def _validate_semantics(raw: dict) -> list[str]:
 def _path_not_guaranteed(path: tuple, guaranteed: set) -> bool:
     """A path is guaranteed if the set contains any of its prefixes."""
     if path[0] in ("channel", "user_id", "session_id", "iteration_count",
-                    "main_context", "_terminal"):
+                    "main_context", "_terminal", "messages"):
         return False  # top-level state fields always resolve
     for i in range(1, len(path) + 1):
         if path[:i] in guaranteed:

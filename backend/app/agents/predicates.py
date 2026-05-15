@@ -22,6 +22,23 @@ Paths: the first segment selects a top-level state field:
     channel                    — state.channel
     iteration_count            — state.iteration_count
     main_context.X             — state.main_context["X"]
+    messages.last_ai           — the most-recent AI message object (or None)
+    messages.last_ai.tool_calls — its .tool_calls list (use with `has(...)`)
+    messages.last_ai_text      — its .content string
+    messages.last_user         — the most-recent human message object
+    messages.last_user_text    — its .content string
+    messages.last_tool         — the most-recent tool message object
+    messages.count             — total messages in state
+
+Worked examples:
+    has(variables.amount) && variables.amount > 0
+        — the parse_node wrote amount and it's positive.
+    is_empty(variables.from_account)
+        — slot not yet filled; route to ask_for_source_account.
+    has(messages.last_ai.tool_calls)
+        — the previous llm_node DID emit tool_calls; safe to advance to tool_node.
+    channel == "voice"
+        — branch on entry channel.
 """
 
 from __future__ import annotations
@@ -225,6 +242,34 @@ class _Parser:
 # --- Evaluator ---
 
 
+def _build_messages_view(msgs) -> dict:
+    """Compose a small dict view of `state.messages` that the path walker
+    can traverse to power predicates like `has(messages.last_ai.tool_calls)`.
+
+    Identified by duck-typing on the LangChain message `.type` attribute
+    so we don't have to import langchain_core into this module.
+    """
+    last_ai = last_user = last_tool = None
+    for m in reversed(msgs or ()):
+        t = getattr(m, "type", None)
+        if last_ai is None and t == "ai":
+            last_ai = m
+        elif last_user is None and t == "human":
+            last_user = m
+        elif last_tool is None and t == "tool":
+            last_tool = m
+        if last_ai is not None and last_user is not None and last_tool is not None:
+            break
+    return {
+        "count": len(msgs or ()),
+        "last_ai": last_ai,
+        "last_user": last_user,
+        "last_tool": last_tool,
+        "last_ai_text": getattr(last_ai, "content", None) if last_ai is not None else None,
+        "last_user_text": getattr(last_user, "content", None) if last_user is not None else None,
+    }
+
+
 def _resolve_path(state: dict, parts: tuple[str, ...]) -> Any:
     """Top-level paths map to state fields; nested paths walk dicts."""
     if not parts:
@@ -239,6 +284,8 @@ def _resolve_path(state: dict, parts: tuple[str, ...]) -> Any:
         value = (state.get("main_context") or {})
     elif head == "variables":
         value = (state.get("variables") or {})
+    elif head == "messages":
+        value = _build_messages_view(state.get("messages") or [])
     else:
         # Short-hand: `from_account` → `variables.from_account`.
         value = (state.get("variables") or {}).get(head)
