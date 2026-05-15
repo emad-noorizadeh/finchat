@@ -528,9 +528,12 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSe
       <div className="absolute bottom-4 left-4 z-10">
         <AddNodeMenu onAdd={handleAddNode} />
       </div>
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-        <div className="px-3 py-1 rounded-full bg-white/90 border border-gray-200 text-[11px] text-gray-600 shadow-sm">
-          Drag from a node's bottom or side dot to another node's top dot to add an edge. Dashed orange = runtime-injected.
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none max-w-[680px]">
+        <div className="px-3 py-1.5 rounded-full bg-white/90 border border-gray-200 text-[11px] text-gray-600 shadow-sm leading-relaxed">
+          <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> source</span>
+          {' · '}
+          <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block"></span> target</span>
+          {' — drag green→blue to add an edge. Click an edge (or its label) to edit its predicate / label / order. Dashed orange = runtime-injected.'}
         </div>
       </div>
     </div>
