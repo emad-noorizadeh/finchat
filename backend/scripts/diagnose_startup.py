@@ -24,6 +24,12 @@ import asyncio
 import sys
 from pathlib import Path
 
+# Make `app.*` importable regardless of cwd — mirrors scripts/bootstrap.py.
+_HERE = Path(__file__).resolve().parent
+_BACKEND = _HERE.parent
+if str(_BACKEND) not in sys.path:
+    sys.path.insert(0, str(_BACKEND))
+
 
 def _hdr(n: int, total: int, label: str) -> None:
     print(f"[{n}/{total}] {label} ...", flush=True)
