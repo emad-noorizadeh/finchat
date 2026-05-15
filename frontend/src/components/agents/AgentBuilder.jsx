@@ -203,6 +203,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
     description: '',
     search_hint: '',
     always_load: false,
+    context: '',
     system_prompt: '',
     tool_names: [],
     constraints: { require_confirmation: false },
@@ -229,6 +230,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
           description: d.description || '',
           search_hint: d.search_hint || '',
           always_load: d.always_load || false,
+          context: d.context || '',
           system_prompt: d.system_prompt || '',
           tool_names: d.tools || [],
           constraints: {},
@@ -289,6 +291,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
       description: form.description || "",
       search_hint: form.search_hint || "",
       always_load: !!form.always_load,
+      context: form.context || "",
       graph_definition: form.graph_definition,
       supported_channels: form.supported_channels?.length ? form.supported_channels : [form.channel],
       is_regulated: !!form.is_regulated,
@@ -439,7 +442,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
           {/* Right-padding reserves the top-right corner for the fullscreen /
               collapse icon overlay so the "settings" tab isn't obscured. */}
           <div className="flex border-b border-gray-200 pr-20">
-            {['general', 'prompt', 'settings'].map((tab) => (
+            {['general', 'prompt', 'context', 'settings'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setSettingsTab(tab)}
@@ -513,6 +516,35 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
                 nodes={form.graph_definition?.nodes || []}
                 onOpenNode={(n) => setSelectedNodeId(n.id)}
               />
+            )}
+
+            {settingsTab === 'context' && (
+              <div className="space-y-2">
+                <div className="rounded-lg bg-sky-50 border border-sky-200 px-3 py-2.5 text-[12px] text-sky-900 leading-relaxed">
+                  <strong>Sub-agent context.</strong> Free-form knowledge that's
+                  auto-prepended to every <code className="text-[11px]">llm_node</code> and
+                  <code className="text-[11px]"> parse_node</code> (mode=llm) prompt in this
+                  agent. Use it for domain facts, comparison tables, eligibility rules — the
+                  kind of content that helps the LLM answer accurately without re-pasting it
+                  into every node. Markdown is fine; the runtime treats it as opaque text.
+                  Individual nodes can opt out via the
+                  <em> Include agent context</em> checkbox in their editor.
+                </div>
+                <label className="block">
+                  <span className="text-xs font-medium text-gray-500">Context</span>
+                  <textarea
+                    value={form.context || ''}
+                    onChange={(e) => setField('context', e.target.value)}
+                    rows={Math.max(20, (form.context || '').split('\n').length + 1)}
+                    placeholder={`# Card comparison\n\n| Card | Cashback | Annual fee |\n|---|---|---|\n| Everyday Cash Rewards | 1.5% | $0 |\n| Travel Rewards | 1.5x points | $0 |\n| Premium Travel | 3x points | $95 |\n\n## Eligibility\n- Premium Travel requires a 720+ FICO ...`}
+                    className="mt-1 w-full px-2 py-1.5 border border-gray-300 rounded text-sm font-mono leading-relaxed focus:outline-none focus:border-blue-500 resize-y min-h-[20rem] whitespace-pre-wrap"
+                  />
+                </label>
+                <p className="text-[11px] text-gray-400 italic">
+                  Stored once per sub-agent. Re-deploy is not required after edit — the next
+                  turn picks up the new context automatically.
+                </p>
+              </div>
             )}
 
             {settingsTab === 'settings' && (

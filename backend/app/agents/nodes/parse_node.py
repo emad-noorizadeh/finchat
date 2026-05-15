@@ -50,12 +50,20 @@ def build_parse_node_factory(data: dict) -> Callable:
         return _build_regex_handler(source, extractors)
 
     if mode == "llm":
-        system_prompt = data.get("system_prompt", "")
+        raw_prompt = data.get("system_prompt", "")
         output_schema = data.get("output_schema") or {}
         writes_raw = data.get("writes")
         # #11 — default writes map: identity. {field: field} for every schema key.
         writes = writes_raw if writes_raw else {k: k for k in output_schema.keys()}
         llm_variant = data.get("llm_variant", "sub_agent")
+        # Auto-prepend the sub-agent context unless this node opts out.
+        include_context = data.get("include_context", True)
+        agent_context = data.get("_agent_context", "") if include_context else ""
+        system_prompt = (
+            f"{agent_context}\n\n{raw_prompt}"
+            if agent_context and raw_prompt
+            else (agent_context or raw_prompt)
+        )
         return _build_llm_handler(source, system_prompt, output_schema, writes, llm_variant)
 
     raise ValueError(f"parse_node.mode must be 'regex' or 'llm', got {mode!r}")

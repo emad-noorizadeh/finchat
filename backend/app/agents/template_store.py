@@ -45,6 +45,7 @@ def _row_to_raw(row: SubAgentTemplate) -> dict:
         "entry_node": row.entry_node,
         "nodes": gd.get("nodes") or [],
         "edges": gd.get("edges") or [],
+        "context": row.context or "",
     }
 
 
@@ -107,6 +108,7 @@ def upsert_template(
     description: str = "",
     search_hint: str = "",
     always_load: bool = False,
+    context: str = "",
 ) -> SubAgentTemplate:
     """Validate + persist a template. Returns the saved row.
 
@@ -147,6 +149,7 @@ def upsert_template(
                 "nodes": list(loaded.nodes),
                 "edges": list(loaded.edges),
             },
+            "context": context or loaded.context or "",
         }
 
         if existing:
@@ -342,4 +345,5 @@ def _row_values_from_raw(raw: dict, loaded) -> dict:
             "nodes": list(loaded.nodes),
             "edges": list(loaded.edges),
         },
+        "context": loaded.context or raw.get("context") or "",
     }

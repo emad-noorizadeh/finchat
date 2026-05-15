@@ -60,6 +60,11 @@ class SubAgentTemplate(SQLModel, table=True):
     search_hint: str = ""    # used by tool_search's weighted-match ranking
     always_load: bool = False    # bind to every turn vs. surface via tool_search
 
+    # Sub-agent knowledge blob. Auto-prepended to every llm_node /
+    # parse_node(mode=llm) system prompt unless the node sets
+    # data.include_context=false. Plain text — Markdown by convention.
+    context: str = ""
+
     # Auditing.
     created_by: str = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

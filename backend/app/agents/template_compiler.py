@@ -34,11 +34,20 @@ def compile_template(template, *, checkpointer=None):
     graph = StateGraph(SubAgentState)
 
     # 1. Add one LangGraph node per template node (handler-wrapped).
+    # Compiler-injected fields (underscore-prefixed) ride alongside the
+    # author's data so node factories don't need an extra parameter:
+    #   _agent_context  — sub-agent knowledge blob, auto-prepended to
+    #                     llm_node / parse_node(mode=llm) prompts unless
+    #                     data.include_context is explicitly False.
+    agent_context = (template.context or "").strip()
     for node in template.nodes:
         factory = get_node_factory(node["type"])
         if factory is None:
             raise ValueError(f"unknown node type {node['type']!r} in template {template.name!r}")
-        handler = factory(node.get("data") or {})
+        data = dict(node.get("data") or {})
+        if agent_context:
+            data.setdefault("_agent_context", agent_context)
+        handler = factory(data)
         wrapped = _wrap_with_state_snapshot(handler, node["id"], node["type"])
         graph.add_node(node["id"], wrapped)
 

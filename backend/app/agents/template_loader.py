@@ -47,6 +47,7 @@ class LoadedTemplate:
     nodes: tuple[dict, ...]
     edges: tuple[dict, ...]
     entry_node: str
+    context: str
     hash: str
     warnings: tuple[str, ...]
 
@@ -86,6 +87,7 @@ def load_template(raw: dict) -> LoadedTemplate:
         nodes=nodes,
         edges=edges,
         entry_node=entry,
+        context=str(raw.get("context") or ""),
         hash=template_hash(raw),
         warnings=tuple(warnings),
     )

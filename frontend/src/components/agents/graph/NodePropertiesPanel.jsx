@@ -267,6 +267,9 @@ function ParseNodeEditor({ data, update }) {
 
       {data.mode === 'llm' && (
         <Section title="LLM parse">
+          <ContextToggle
+            checked={data.include_context !== false}
+            onChange={(v) => update('include_context', v)} />
           <MarkdownField label="System prompt" value={data.system_prompt}
             onChange={(v) => update('system_prompt', v)}
             placeholder="Extract X from the user's utterance; return nulls if absent."
@@ -742,9 +745,11 @@ function InterruptNodeEditor({ data, update, slotNames, supportedChannels }) {
 // --- LLM node (free-form) ---
 
 function LlmNodeEditor({ data, update }) {
+  const includeContext = data.include_context !== false
   return (
     <div className="space-y-3">
       <TextField label="Node label" value={data.label} onChange={(v) => update('label', v)} />
+      <ContextToggle checked={includeContext} onChange={(v) => update('include_context', v)} />
       <MarkdownField label="System prompt" value={data.system_prompt}
         onChange={(v) => update('system_prompt', v)}
         placeholder="You are the Help sub-agent..."
@@ -757,6 +762,29 @@ function LlmNodeEditor({ data, update }) {
         value={data.output_schema || {}}
         onChange={(v) => update('output_schema', Object.keys(v).length ? v : null)} />
     </div>
+  )
+}
+
+
+// Shared toggle for opting a single llm_node / parse_node out of the
+// sub-agent's auto-prepended context.
+function ContextToggle({ checked, onChange }) {
+  return (
+    <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded border border-gray-200 bg-gray-50">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5"
+      />
+      <span className="leading-snug">
+        <span className="font-medium text-gray-700">Include agent context</span>
+        <span className="block text-gray-500 mt-0.5">
+          Prepends the sub-agent's <em>Context</em> tab content to this node's system prompt
+          at runtime. Untick to use the system prompt alone.
+        </span>
+      </span>
+    </label>
   )
 }
 
