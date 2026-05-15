@@ -976,8 +976,9 @@ If the self-hosted instance uses a self-signed cert, set `REQUESTS_CA_BUNDLE=/pa
 | `SubAgentState` | `app/agents/state.py` |
 | Node factories (`parse_node`, `condition_node`, `tool_call_node`, `interrupt_node`, `llm_node`, `tool_node`, `response_node`) | `app/agents/nodes/` |
 | Predicate DSL compiler (pure, no `eval`) | `app/agents/predicates.py` |
-| Template → `StateGraph` compiler (runtime-injected escape / retry edges) | `app/agents/template_compiler.py` |
-| Template validator + `LoadedTemplate` dataclass | `app/agents/template_loader.py` |
+| `{{var}}` substitution resolver (shared by `interrupt_node`, `tool_call_node`, `response_node`, `llm_node`, `parse_node`) | `app/utils/templates.py` |
+| Template → `StateGraph` compiler (runtime-injected escape / retry edges, `_agent_context` injection) | `app/agents/template_compiler.py` |
+| Template validator + `LoadedTemplate` dataclass (carries `context` field) | `app/agents/template_loader.py` |
 | DB-backed template store + seed-from-files | `app/agents/template_store.py` |
 | File-based discovery helpers + `initialize_templates()` | `app/agents/templates/__init__.py` |
 | Regulated seed templates | `app/agents/templates/*.json` |
@@ -985,6 +986,10 @@ If the self-hosted instance uses a self-signed cert, set `REQUESTS_CA_BUNDLE=/pa
 | Per-process driver runtime (thread registry, accumulated inner state) | `app/agents/runtime.py` |
 | Escape classifier (abort / topic-change) | `app/agents/escape.py` |
 | Regex parsers (`money`, `yes_no`, `account_keyword`, `last4`) + LLM structured-output helper | `app/agents/parsers/` |
+
+**Per-agent context.** `SubAgentTemplate.context` (added migration `a3f9b2c1e8d4`) is a Markdown blob that travels with the template. At compile time `template_compiler` injects it into each node's data as `_agent_context`. At runtime `llm_node` and `parse_node(mode=llm)` auto-prepend it to their system prompt unless the node sets `data.include_context = false`. Authored via the Agent Builder's **Context** tab. See `extending_tools_and_agents.md` Part 2 → "Per-agent context (knowledge blob)" for the authoring story.
+
+**Runtime prompt substitution.** Every `system_prompt` on `llm_node` and `parse_node(mode=llm)` is passed through `resolve_templates(prompt, state)` immediately before the LLM call — same resolver used by `interrupt_node.prompt_template`, `tool_call_node.params_template`, and `response_node.text_template`. So authors can reference `{{variables.X}}` (upstream slots) and `{{user_id}}` / `{{session_id}}` / `{{channel}}` directly in prompt text. The Agent Builder's Variables panel (next to the system_prompt textarea) surfaces the BFS-upstream-discoverable slot names + state scalars as click-to-insert buttons.
 
 ### Widgets
 

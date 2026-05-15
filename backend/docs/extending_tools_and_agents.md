@@ -215,19 +215,59 @@ Frontend: `frontend/src/components/agents/AgentBuilder.jsx` + `frontend/src/page
 ##### UI layout — what's where
 
 - **Top bar** — agent name, status, **Save as Draft** / **Save & Deploy**.
-- **Left panel (Settings)** — three tabs:
+- **Left panel (Settings)** — four tabs:
   - *General*: display name, slug, channel, **description** (LLM-facing), **search hint**.
   - *Prompt*: per-node prompt overview (read-only summary).
+  - *Context*: per-sub-agent knowledge blob (Markdown). Auto-prepended to every LLM-calling node's system prompt unless that node opts out. See "Per-agent context (knowledge blob)" below.
   - *Settings*: response format, read-only flag, require confirmation, **Always-load** checkbox.
 - **Centre — graph canvas** — drag nodes around, drag from a node handle to draw an edge. Click `+` to add a node (parse / condition / interrupt / tool_call / llm / tool / response). A small hint above the canvas reminds you of the edge convention.
 - **Right panel (Node Properties)** — appears when a node is selected. Every node type has its own editor (tool dropdown for `tool_call_node`, return-mode + variant dropdowns for `response_node`, etc.). Edits persist into form state as you go; the **Save** buttons at the top push everything to `/api/agents` in one request.
 
+##### Per-agent context (knowledge blob)
+
+The **Context** tab (next to General / Prompt / Settings) holds a Markdown blob that travels with the sub-agent template. Use it for domain facts the agent needs to answer accurately — card comparison tables, eligibility rules, product specs, FAQ-style boilerplate — content that helps the LLM without having to be re-pasted into every node.
+
+**How it reaches the model.** The compiler injects `template.context` into each node's data dict as `_agent_context`. At runtime, `llm_node` and `parse_node(mode=llm)` **auto-prepend** the context to the author's `system_prompt` with a blank-line separator, unless the node sets `data.include_context = false`. Per-node opt-out is exposed as the `Include agent context` checkbox in each LLM-calling editor.
+
+**When to use it vs. an LLM-side `knowledge_search` tool.**
+
+| Use the Context tab when… | Use a knowledge tool when… |
+|---|---|
+| The knowledge fits in ~1-3K tokens and changes rarely. | The corpus is too large to put in every prompt. |
+| Every LLM call in this sub-agent benefits from the same context (card facts for `card_advisor`, eligibility rules for `refund_fee`). | Only specific turns need a targeted lookup, paid for one tool call. |
+| You want zero retrieval latency on first turn. | You're OK with one extra hop. |
+
+**Storage.** Single TEXT column on `sub_agent_templates`. Round-trips through the upsert API, the seed-JSON import path, and the agent detail GET endpoint. Empty string `""` is the inert default — when context is empty, the auto-prepend logic adds nothing and prompts behave exactly as before.
+
+**Live edits.** Saving the agent re-runs `_refresh_registry()` which re-imports the template. The next turn picks up the new context automatically — no backend restart.
+
+##### Prompt Builder: variable insertion panel
+
+Sits directly below the `System Prompt` textarea on `llm_node` and `parse_node(mode=llm)` editors. Two sections:
+
+- **Slots written upstream** — one button per variable that some ancestor node writes (BFS over the edge graph from the current node back to entry). Sources:
+  - `parse_node` — `writes.values()` + `extractors[].slot`
+  - `tool_call_node` — `output_var`
+  - `interrupt_node` — `targets_slot`
+  
+  Each row shows the source node id so you can trace where the value comes from. Empty section is hidden — entry nodes won't have anything here.
+- **State scalars** — always visible: `{{user_id}}`, `{{session_id}}`, `{{channel}}`.
+
+**Click-to-insert.** Each button inserts `{{token}}` at the textarea's **current cursor position**, with the caret restored just after the inserted text. No need to switch to a separate "insert mode" — just keep typing.
+
+**At runtime.** The prompt goes through `app/utils/templates.py:resolve_templates(state)` immediately before being sent to the LLM, so `{{variables.X}}` reflects the slot value at *this* node's execution time, not at compile time. Missing references resolve to empty string — same convention used by `interrupt_node.prompt_template` and `response_node.text_template`.
+
+**Authoring rule.** Reference upstream slots by their exact slot name (the `{slot}` you defined in the upstream `parse_node` extractor / `tool_call_node.output_var`). The panel only lists names that some upstream node writes, so if a slot you expect isn't there, the upstream wiring is broken — fix the graph before fixing the prompt.
+
 ##### Edge conventions
 
-- **Direction**: every edge has an **arrowhead** at the target end. Drag from a node's **bottom dot (source)** to another node's **top dot (target)** for the default downflow. Side dots are split into `out` (60% down, source) and `in` (40% down, target) so forward and loop edges between the same pair don't overlap visually.
+- **Handle colour**: 🟢 green dots are **sources** (drag FROM), 🔵 blue dots are **targets** (drop ON). Each node has six handles total — top (target), bottom (source), and left/right pairs split on Y so forward and loop edges between the same pair don't overlap visually. Handles grow + show a ring on hover so you can see exactly where to grab.
+- **Direction**: every edge has an **arrowhead** at the target end. Drag from a green source dot to a blue target dot.
+- **Panel alternative (Condition node)**: when a condition_node is selected, the right panel exposes a `+ Add outgoing edge` button under the existing edges list. Click it to pick a target from a dropdown — useful for fan-out patterns where dragging multiple edges out of the same node is fiddly.
 - **Solid grey** = authored edge in your template.
 - **Dashed blue** = loop edge (e.g. `tool_call → dispatch` re-entry).
 - **Dashed orange ("runtime")** = synthetic edge the compiler injects at runtime — e.g. from a condition_node to a `response_node` with the **failure** or **escape** variant. You don't author these; they appear in the canvas so the routing is visible.
+- **Edge labels**: by default, edges show no label. **Condition node fan-outs** show a small `#N` priority badge (execution order matters). Authors can set a custom label per edge in the edge editor (right panel when an edge is selected).
 
 ##### Editing an edge
 
@@ -660,9 +700,9 @@ The validator (template_loader.py) emits these as **warnings, not errors** — t
 6. **No side effects.** Predicates only read from state; they never mutate it. State changes happen in `parse_node` / `tool_call_node` / `response_node`.
 7. **No `eval`. No dynamic code.** This DSL is intentionally locked down — it's the audit boundary for regulated flows. Don't try to extend it ad-hoc; if you need a new capability, add it to the parser and the evaluator together (see `_evaluate` in `predicates.py`).
 
-### 4.2 The `{{var}}` substitution DSL (text and widget data)
+### 4.2 The `{{var}}` substitution DSL (text, widget data, and LLM prompts)
 
-Used in any string field a node feeds to the user — `text_template`, `widget_data_template`, etc. Resolved by `app/utils/templates.py`.
+Used in any string field a node feeds either to the user or to an LLM — `text_template`, `widget_data_template`, `interrupt_node.prompt_template`, `tool_call_node.params_template`, and **`llm_node.system_prompt` / `parse_node.system_prompt` (mode=llm)**. Resolved by `app/utils/templates.py`.
 
 **Two modes, with one critical distinction:**
 
