@@ -41,6 +41,7 @@ def build_llm_node_factory(data: dict) -> Callable:
     async def handler(state: dict) -> dict:
         from app.services.llm_service import get_llm
         from app.tools import get_tool
+        from app.utils.templates import resolve_templates
 
         # Gather bound tools — schemas only (LangChain tool-binding convention).
         bound_schemas = []
@@ -55,7 +56,11 @@ def build_llm_node_factory(data: dict) -> Callable:
         else:
             llm_bound = llm
 
-        messages = [SystemMessage(content=system_prompt)] + list(state.get("messages") or [])
+        # Runtime substitution: {{variables.X}}, {{user_id}}, {{channel}}, etc.
+        # All resolved against state at the moment this node runs, so authors
+        # can weave upstream slot values + tool results into the system prompt.
+        rendered_prompt = str(resolve_templates(system_prompt, state))
+        messages = [SystemMessage(content=rendered_prompt)] + list(state.get("messages") or [])
         response = await llm_bound.ainvoke(messages)
 
         logger.info(

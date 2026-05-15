@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -20,11 +20,15 @@ function Section({ title, children }) {
 // Field with an Edit / Preview toggle — the Preview tab renders markdown
 // (GFM). Used for system prompts so authors can see headings + bullet lists
 // + inline code laid out the way the LLM ultimately sees them.
-function MarkdownField({
+const MarkdownField = forwardRef(function MarkdownField({
   label, value, onChange, placeholder = '',
   autoGrow = true, minRows = 10, defaultView = 'edit',
-}) {
+}, ref) {
   const [view, setView] = useState(defaultView)
+  const textareaRef = useRef(null)
+  // Expose the textarea node so the VariablesPanel can insert at the
+  // current cursor position. Only valid when view === 'edit'.
+  useImperativeHandle(ref, () => textareaRef.current, [view])
   const effectiveRows = autoGrow
     ? Math.max(minRows, (String(value || '').split('\n').length) + 1)
     : minRows
@@ -48,6 +52,7 @@ function MarkdownField({
       </div>
       {view === 'edit' ? (
         <textarea
+          ref={textareaRef}
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
@@ -68,7 +73,7 @@ function MarkdownField({
       )}
     </div>
   )
-}
+})
 
 
 function TextField({
@@ -221,7 +226,25 @@ function JsonField({ label, value, onChange, placeholder = '{}', rows = 8 }) {
 
 // --- Parse node ---
 
-function ParseNodeEditor({ data, update }) {
+function ParseNodeEditor({ data, update, nodeId, allNodes, allEdges }) {
+  const slotVars = useUpstreamVariables(nodeId, allNodes, allEdges)
+  const promptRef = useRef(null)
+  const insertAtCursor = (text) => {
+    const ta = promptRef.current
+    if (!ta) {
+      update('system_prompt', (data.system_prompt || '') + text)
+      return
+    }
+    const start = ta.selectionStart ?? ta.value.length
+    const end = ta.selectionEnd ?? ta.value.length
+    const next = ta.value.slice(0, start) + text + ta.value.slice(end)
+    update('system_prompt', next)
+    setTimeout(() => {
+      ta.focus()
+      const pos = start + text.length
+      ta.selectionStart = ta.selectionEnd = pos
+    }, 0)
+  }
   return (
     <div className="space-y-3">
       <TextField label="Node label" value={data.label} onChange={(v) => update('label', v)} />
@@ -270,10 +293,11 @@ function ParseNodeEditor({ data, update }) {
           <ContextToggle
             checked={data.include_context !== false}
             onChange={(v) => update('include_context', v)} />
-          <MarkdownField label="System prompt" value={data.system_prompt}
+          <MarkdownField ref={promptRef} label="System prompt" value={data.system_prompt}
             onChange={(v) => update('system_prompt', v)}
             placeholder="Extract X from the user's utterance; return nulls if absent."
             minRows={10} />
+          <VariablesPanel slotVars={slotVars} onInsert={insertAtCursor} />
           <JsonField label="Output schema (field → {type, nullable})"
             value={data.output_schema}
             onChange={(v) => update('output_schema', v)}
@@ -744,16 +768,39 @@ function InterruptNodeEditor({ data, update, slotNames, supportedChannels }) {
 
 // --- LLM node (free-form) ---
 
-function LlmNodeEditor({ data, update }) {
+function LlmNodeEditor({ data, update, nodeId, allNodes, allEdges }) {
   const includeContext = data.include_context !== false
+  const slotVars = useUpstreamVariables(nodeId, allNodes, allEdges)
+  const promptRef = useRef(null)
+  const insertAtCursor = (text) => {
+    const ta = promptRef.current
+    if (!ta) {
+      // Preview mode or before-mount — append at end as a fallback.
+      update('system_prompt', (data.system_prompt || '') + text)
+      return
+    }
+    const start = ta.selectionStart ?? ta.value.length
+    const end = ta.selectionEnd ?? ta.value.length
+    const before = ta.value.slice(0, start)
+    const after = ta.value.slice(end)
+    const next = before + text + after
+    update('system_prompt', next)
+    // Restore cursor to just after the inserted token.
+    setTimeout(() => {
+      ta.focus()
+      const pos = start + text.length
+      ta.selectionStart = ta.selectionEnd = pos
+    }, 0)
+  }
   return (
     <div className="space-y-3">
       <TextField label="Node label" value={data.label} onChange={(v) => update('label', v)} />
       <ContextToggle checked={includeContext} onChange={(v) => update('include_context', v)} />
-      <MarkdownField label="System prompt" value={data.system_prompt}
+      <MarkdownField ref={promptRef} label="System prompt" value={data.system_prompt}
         onChange={(v) => update('system_prompt', v)}
         placeholder="You are the Help sub-agent..."
         minRows={12} />
+      <VariablesPanel slotVars={slotVars} onInsert={insertAtCursor} />
       <TextField label="Tools (comma-separated names)"
         value={(data.tools || []).join(', ')}
         onChange={(v) => update('tools', v.split(',').map((s) => s.trim()).filter(Boolean))}
@@ -761,6 +808,112 @@ function LlmNodeEditor({ data, update }) {
       <JsonField label="Output schema (optional — required for regulated sub-agents)"
         value={data.output_schema || {}}
         onChange={(v) => update('output_schema', Object.keys(v).length ? v : null)} />
+    </div>
+  )
+}
+
+
+// BFS upstream from `currentNodeId` over the directed edge graph to
+// collect every slot/variable name that some ancestor node writes into
+// state.variables. Used by VariablesPanel to surface only references
+// the author can actually rely on at runtime — references whose
+// upstream writer is reachable from the entry node and runs before the
+// current node.
+function useUpstreamVariables(currentNodeId, allNodes, allEdges) {
+  return useMemo(() => {
+    if (!currentNodeId) return []
+    const nodesById = new Map((allNodes || []).map((n) => [n.id, n]))
+    const incomingBy = new Map()
+    for (const e of allEdges || []) {
+      if (!incomingBy.has(e.target)) incomingBy.set(e.target, [])
+      incomingBy.get(e.target).push(e.source)
+    }
+
+    // BFS upstream — collect all reachable ancestors. We don't try to
+    // model conditional reachability (predicate analysis) here; if an
+    // ancestor exists on ANY upstream path, its writes are listed.
+    // Authors can still reference variables that aren't on every path
+    // — `resolve_templates` substitutes empty string when missing.
+    const visited = new Set()
+    const queue = [currentNodeId]
+    while (queue.length) {
+      const id = queue.shift()
+      if (visited.has(id)) continue
+      visited.add(id)
+      for (const src of incomingBy.get(id) || []) queue.push(src)
+    }
+    visited.delete(currentNodeId)
+
+    const slots = new Map()  // slot name → emitter node id (for display)
+    for (const id of visited) {
+      const n = nodesById.get(id)
+      if (!n) continue
+      const d = n.data || {}
+      if (n.type === 'parse_node') {
+        // Both `writes` (mode=llm) and `extractors[].slot` (mode=regex) emit slots.
+        for (const slot of Object.values(d.writes || {})) {
+          if (slot && !slots.has(slot)) slots.set(slot, id)
+        }
+        for (const ex of d.extractors || []) {
+          if (ex.slot && !slots.has(ex.slot)) slots.set(ex.slot, id)
+        }
+      } else if (n.type === 'tool_call_node') {
+        if (d.output_var && !slots.has(d.output_var)) slots.set(d.output_var, id)
+      } else if (n.type === 'interrupt_node') {
+        if (d.targets_slot && !slots.has(d.targets_slot)) slots.set(d.targets_slot, id)
+      }
+    }
+    return Array.from(slots.entries()).map(([name, sourceNodeId]) => ({ name, sourceNodeId }))
+  }, [currentNodeId, allNodes, allEdges])
+}
+
+
+// Side panel listing variables the author can reference in this node's
+// system prompt. Click a row to insert `{{path}}` at the textarea's
+// current cursor position; insertion goes through the onInsert callback
+// the parent wires up against MarkdownField's ref.
+function VariablesPanel({ slotVars, onInsert }) {
+  const Item = ({ token, label, hint }) => (
+    <button
+      type="button"
+      onClick={() => onInsert(`{{${token}}}`)}
+      title={hint || `Insert {{${token}}}`}
+      className="w-full text-left px-2 py-1 text-[11px] font-mono bg-white border border-gray-200 rounded hover:bg-emerald-50 hover:border-emerald-300 transition-colors"
+    >
+      <span className="text-emerald-700">{`{{${token}}}`}</span>
+      {label && <span className="block text-[10px] text-gray-500 font-sans truncate">{label}</span>}
+    </button>
+  )
+  return (
+    <div className="space-y-2 p-2 border border-gray-200 rounded bg-gray-50">
+      <div className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+        Insert variable
+      </div>
+      <p className="text-[10px] text-gray-500 leading-relaxed">
+        Click to paste at cursor. Resolved against state at runtime via the
+        shared <code>{'{{ }}'}</code> template syntax — missing values render
+        as empty string.
+      </p>
+
+      {slotVars.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">
+            Slots written upstream
+          </div>
+          {slotVars.map(({ name, sourceNodeId }) => (
+            <Item key={name} token={`variables.${name}`} label={`from ${sourceNodeId}`} />
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-1">
+        <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">
+          State scalars
+        </div>
+        <Item token="user_id" />
+        <Item token="session_id" />
+        <Item token="channel" />
+      </div>
     </div>
   )
 }
@@ -1011,7 +1164,8 @@ export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNod
       </div>
 
       {node.type === 'parse_node' && (
-        <ParseNodeEditor data={node.data} update={update} />
+        <ParseNodeEditor data={node.data} update={update}
+          nodeId={node.id} allNodes={allNodes} allEdges={allEdges} />
       )}
       {node.type === 'condition_node' && (
         <ConditionNodeEditor data={node.data} update={update}
@@ -1028,7 +1182,8 @@ export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNod
         <InterruptNodeEditor data={node.data} update={update} slotNames={slotNames} supportedChannels={supportedChannels} />
       )}
       {node.type === 'llm_node' && (
-        <LlmNodeEditor data={node.data} update={update} />
+        <LlmNodeEditor data={node.data} update={update}
+          nodeId={node.id} allNodes={allNodes} allEdges={allEdges} />
       )}
       {node.type === 'tool_node' && (
         <ToolNodeEditor data={node.data} update={update} />

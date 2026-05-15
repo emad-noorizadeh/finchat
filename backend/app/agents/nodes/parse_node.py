@@ -110,6 +110,8 @@ def _build_llm_handler(
     llm_variant: str,
 ) -> Callable:
     async def handler(state: dict) -> dict:
+        from app.utils.templates import resolve_templates
+
         utterance = _latest_user_utterance(state)
         variables = dict(state.get("variables") or {})
         written: set[str] = set()
@@ -117,9 +119,12 @@ def _build_llm_handler(
         if not utterance:
             return _apply_retry_tracking(state, variables, written)
 
+        # Runtime substitution: {{variables.X}}, {{user_id}}, {{channel}}, etc.
+        rendered_prompt = str(resolve_templates(system_prompt, state))
+
         parsed = await llm_parse(
             utterance,
-            system_prompt=system_prompt,
+            system_prompt=rendered_prompt,
             output_schema=output_schema,
             channel=state.get("channel", "chat"),
             llm_variant=llm_variant,
