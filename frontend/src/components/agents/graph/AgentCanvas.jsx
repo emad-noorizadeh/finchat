@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactFlow, { Background, Controls, MarkerType, addEdge, reconnectEdge, useNodesState, useEdgesState } from 'reactflow'
 import 'reactflow/dist/style.css'
 
@@ -527,6 +527,24 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSe
     onEdgeSelect?.(null)
   }
 
+  // `fitView` only fires on the very first mount, so when graphDef arrives
+  // async (initial render has zero nodes, then setNodes populates), the
+  // viewport is left over from the empty state. Re-fit once the first
+  // non-empty node set lands. After that, leave the user's pan/zoom alone.
+  const [rfInstance, setRfInstance] = useState(null)
+  const hasFittedOnce = useRef(false)
+  useEffect(() => {
+    if (!rfInstance) return
+    if (hasFittedOnce.current) return
+    if (nodes.length === 0) return
+    // requestAnimationFrame so layout has settled (node measurements done).
+    const frame = requestAnimationFrame(() => {
+      rfInstance.fitView({ padding: 0.18, duration: 0 })
+      hasFittedOnce.current = true
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [rfInstance, nodes.length])
+
   return (
     <div className="w-full h-full">
       <ReactFlow
@@ -539,10 +557,13 @@ export default function AgentCanvas({ graphDef, onChange, onNodeSelect, onEdgeSe
         onEdgeClick={handleEdgeClick}
         onReconnect={handleReconnect}
         onPaneClick={() => { onNodeSelect(null); onEdgeSelect?.(null) }}
+        onInit={setRfInstance}
         nodeTypes={nodeTypes}
         edgesUpdatable
         deleteKeyCode={['Backspace', 'Delete']}
         fitView
+        fitViewOptions={{ padding: 0.18 }}
+        minZoom={0.2}
         className="bg-gray-50"
       >
         <Background color="#e2e8f0" gap={20} />
