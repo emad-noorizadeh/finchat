@@ -319,11 +319,12 @@ function ParseNodeEditor({ data, update, nodeId, allNodes, allEdges }) {
 
 // --- Condition node (dispatcher) ---
 
-function ConditionNodeEditor({ data, update, edges, reorderEdges, updateEdgePredicate, addEdge, nodeIds }) {
+function ConditionNodeEditor({ data, update, edges, reorderEdges, updateEdgePredicate, addEdge, nodeIds, nodeId, allNodes, allEdges }) {
   const existingTargets = new Set((edges || []).map((e) => e.target))
   const candidates = [...(nodeIds || []).filter((id) => !existingTargets.has(id))]
   if (!existingTargets.has('END')) candidates.push('END')
   const [pickerOpen, setPickerOpen] = useState(false)
+  const slotVars = useUpstreamVariables(nodeId, allNodes, allEdges)
   return (
     <div className="space-y-3">
       <TextField label="Node label" value={data.label} onChange={(v) => update('label', v)} />
@@ -359,6 +360,7 @@ function ConditionNodeEditor({ data, update, edges, reorderEdges, updateEdgePred
               onChange={(v) => updateEdgePredicate(e.id, v)}
               placeholder="has(variables.amount) && variables.amount > 0"
             />
+            <PredicateTester predicate={e.predicate} slotVars={slotVars} />
           </div>
         ))}
         {/* Panel-driven edge creation — avoids the drag-from-tiny-handle
@@ -919,6 +921,138 @@ function VariablesPanel({ slotVars, onInsert }) {
 }
 
 
+// Inline tester for a single predicate string. Opens a panel beneath the
+// predicate input with a JSON state editor and a result chip. Initial state
+// is seeded once from upstream slot vars; the author edits freely from there.
+function PredicateTester({ predicate, slotVars = [] }) {
+  const [open, setOpen] = useState(false)
+  const [stateJson, setStateJson] = useState('')
+  const [seeded, setSeeded] = useState(false)
+  const [result, setResult] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open || seeded) return
+    const seed = {
+      variables: (slotVars || []).reduce((acc, v) => { acc[v.name] = ''; return acc }, {}),
+      channel: 'chat',
+      user_id: 'test-user',
+      session_id: 'test-session',
+    }
+    setStateJson(JSON.stringify(seed, null, 2))
+    setSeeded(true)
+  }, [open, seeded, slotVars])
+
+  const runTest = async () => {
+    let parsed
+    try { parsed = JSON.parse(stateJson || '{}') }
+    catch (e) {
+      setResult({ result: null, error: `state JSON invalid: ${e.message}`, referenced_paths: [] })
+      return
+    }
+    setLoading(true)
+    try {
+      const r = await fetch('/api/agents/predicate/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ predicate: predicate || '', state: parsed }),
+      })
+      const data = await r.json()
+      setResult(data)
+    } catch (e) {
+      setResult({ result: null, error: `request failed: ${e.message}`, referenced_paths: [] })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const trimmed = (predicate || '').trim()
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={!trimmed}
+        className="text-[10px] px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 rounded hover:bg-sky-100 disabled:opacity-40 disabled:cursor-not-allowed"
+      >Test predicate</button>
+    )
+  }
+
+  const stateObj = (() => { try { return JSON.parse(stateJson || '{}') } catch { return null } })()
+  const rowCount = Math.max(6, (stateJson.match(/\n/g) || []).length + 1)
+
+  return (
+    <div className="border border-sky-200 bg-sky-50/40 rounded p-2 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-sky-800">Test against synthetic state</span>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="text-[10px] text-gray-500 hover:text-gray-700"
+        >close</button>
+      </div>
+      <textarea
+        value={stateJson}
+        onChange={(ev) => setStateJson(ev.target.value)}
+        spellCheck={false}
+        rows={rowCount}
+        className="w-full text-[11px] font-mono px-2 py-1.5 border border-gray-200 rounded bg-white focus:border-sky-400 focus:outline-none resize-y"
+        placeholder='{"variables": {...}}'
+      />
+      <div className="flex gap-1.5 items-center">
+        <button
+          type="button"
+          onClick={runTest}
+          disabled={loading}
+          className="text-[11px] px-2 py-1 bg-sky-600 text-white rounded hover:bg-sky-700 disabled:opacity-60"
+        >{loading ? 'Running…' : 'Run'}</button>
+        {result && (
+          <span className={`text-[11px] font-mono px-2 py-0.5 rounded ${
+            result.error ? 'bg-rose-100 text-rose-800' :
+            result.result === true ? 'bg-emerald-100 text-emerald-800' :
+            'bg-gray-100 text-gray-700'
+          }`}>
+            {result.error ? 'error' : String(result.result)}
+          </span>
+        )}
+      </div>
+      {result?.error && (
+        <p className="text-[10px] text-rose-700 font-mono whitespace-pre-wrap">{result.error}</p>
+      )}
+      {result && !result.error && result.referenced_paths?.length > 0 && (
+        <div className="text-[10px] text-gray-600">
+          <span className="font-semibold">Required paths (not under has/is_empty/equality):</span>
+          <ul className="mt-0.5 pl-3 space-y-0.5">
+            {result.referenced_paths.map((path, i) => {
+              const present = pathPresent(stateObj, path)
+              return (
+                <li key={i} className="font-mono">
+                  {path.join('.')}{' '}
+                  <span className={present ? 'text-emerald-700' : 'text-rose-700'}>
+                    {present ? '(present)' : '(missing)'}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+function pathPresent(obj, path) {
+  if (!obj || typeof obj !== 'object') return false
+  let v = obj
+  for (const p of path) {
+    if (v == null || typeof v !== 'object') return false
+    v = v[p]
+  }
+  return v !== undefined && v !== null && v !== ''
+}
+
+
 // Shared toggle for opting a single llm_node / parse_node out of the
 // sub-agent's auto-prepended context.
 function ContextToggle({ checked, onChange }) {
@@ -1031,6 +1165,7 @@ function EdgeEditor({ edge, allEdges, allNodes, onEdgesUpdate, onClose }) {
   const total = (allEdges || []).length
   const sourceNode = (allNodes || []).find((n) => n.id === edge.source)
   const targetNode = (allNodes || []).find((n) => n.id === edge.target)
+  const slotVars = useUpstreamVariables(edge.source, allNodes, allEdges)
 
   const updateField = (field, value) => {
     const next = (allEdges || []).map((e) => e.id === edge.id ? { ...e, [field]: value } : e)
@@ -1061,6 +1196,7 @@ function EdgeEditor({ edge, allEdges, allNodes, onEdgesUpdate, onClose }) {
         value={edge.predicate || ''}
         onChange={(v) => updateField('predicate', v || null)}
         placeholder='has(variables.X) && variables.X != "Y"' multiline />
+      <PredicateTester predicate={edge.predicate} slotVars={slotVars} />
       <TextField label="Label (optional — shown on the edge)"
         value={edge.label || ''}
         onChange={(v) => updateField('label', v || null)}
@@ -1173,7 +1309,10 @@ export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNod
           reorderEdges={reorderEdges}
           updateEdgePredicate={updateEdgePredicate}
           addEdge={addEdge}
-          nodeIds={nodeIds} />
+          nodeIds={nodeIds}
+          nodeId={node.id}
+          allNodes={allNodes}
+          allEdges={allEdges} />
       )}
       {node.type === 'tool_call_node' && (
         <ToolCallNodeEditor data={node.data} update={update} nodeIds={nodeIds} agentName={agentName} />

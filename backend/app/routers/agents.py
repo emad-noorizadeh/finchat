@@ -18,6 +18,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from app.agents.patterns import list_patterns
+from app.agents.predicates import PredicateParseError, compile_predicate
 from app.agents.template_loader import TemplateValidationError
 from app.agents.template_store import (
     delete_template,
@@ -40,6 +41,39 @@ def get_patterns():
     Builder can clone into a new graph. Read-only; patterns live as JSON
     files in app/agents/patterns/."""
     return list_patterns()
+
+
+class PredicateTestRequest(BaseModel):
+    predicate: str
+    state: dict = {}
+
+
+@router.post("/predicate/test")
+def test_predicate(req: PredicateTestRequest):
+    """Compile a predicate string and evaluate it against a synthetic state
+    dict. Used by the Agent Builder's "Test predicate" drawer so authors can
+    sanity-check edge guards without running the graph.
+
+    Returns:
+        {result: bool|null, error: str|null, referenced_paths: [["variables", "X"], ...]}
+    """
+    src = (req.predicate or "").strip()
+    if not src:
+        return {"result": None, "error": "predicate is empty", "referenced_paths": []}
+    try:
+        compiled = compile_predicate(src)
+    except PredicateParseError as e:
+        return {"result": None, "error": f"parse error: {e}", "referenced_paths": []}
+    referenced_paths = [list(p) for p in compiled.referenced_paths]
+    try:
+        result = bool(compiled(req.state or {}))
+    except Exception as e:  # noqa: BLE001
+        return {
+            "result": None,
+            "error": f"evaluation error: {e}",
+            "referenced_paths": referenced_paths,
+        }
+    return {"result": result, "error": None, "referenced_paths": referenced_paths}
 
 
 # --- Listing + detail ---
