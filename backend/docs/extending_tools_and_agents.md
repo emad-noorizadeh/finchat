@@ -124,6 +124,70 @@ You can have both for the same underlying capability. E.g., the Transfer flow:
 - `TransferAgentTool(BaseTool)` is the Planner's entry — "transfer money" intent
 - `TransferOpsTool(AgentTool)` exposes `get_details`, `validate`, `submit` actions that the sub-agent's graph nodes call
 
+#### Two tool registries, three call sites
+
+The two tool kinds live in two completely separate registries that don't know about each other:
+
+```
+BaseTool   →   app/tools/__init__.py:_REGISTRY
+                   keyed by tool.name
+                   populated via register_tool(...)
+                   gateway: get_tool(name), search_tools(query, ...)
+
+AgentTool  →   app/tools/agent_tool.py:AGENT_TOOL_REGISTRY
+                   keyed by (agent_name, tool.name)
+                   populated via register_agent_tool(...)
+                   gateway: get_agent_tool(name, agent_name)
+```
+
+Templates and the Planner invoke these registries from three call sites, each with different rules:
+
+**1. `llm_node.tools[]` — LangChain tool-binding.** A sub-agent's `llm_node` declares a `tools: ["x", "y"]` list. At handler time it does `get_tool(name)` and calls `to_openai_schema()` on each; the LLM is shown those schemas and picks zero-or-more to call. The follow-up `tool_node` then executes whatever `tool_calls` the LLM emitted.
+
+```python
+# llm_node.py — abridged
+for name in tool_names:
+    t = get_tool(name)                         # _REGISTRY only
+    bound_schemas.append(await t.to_openai_schema())
+llm_bound = llm.bind_tools(bound_schemas)
+```
+
+Accepts: **BaseTool** only (needs `.to_openai_schema()`). Choice mechanism: the LLM, this turn.
+
+**2. `tool_call_node` — deterministic dispatch.** The template hard-codes `{tool: "x", action: "y"}` and parameters templated from state. No LLM involved.
+
+```python
+# tool_call_node.py — abridged
+tool = get_agent_tool(effective_tool, agent_name)   # AGENT_TOOL_REGISTRY only
+result = await tool.dispatch(effective_action, resolved_params, context)
+```
+
+Accepts: **AgentTool** only (needs `.actions` and `.dispatch()`). Choice mechanism: template author, at design time.
+
+**3. Planner tool search (main orchestrator only).** The main orchestrator's tool-search step iterates `get_deferred_tools()` and scores by query overlap. Sub-agents never call this.
+
+```python
+# tools/__init__.py — abridged
+def search_tools(query, exclude, channel):
+    for tool in get_deferred_tools():   # _REGISTRY only, should_defer=True
+        score = ...
+```
+
+Accepts: **BaseTool** with `should_defer=True`. AgentTools live in a different registry, so they're invisible to Planner search by construction.
+
+**Visibility summary:**
+
+| Call site | Sees | Does NOT see |
+|---|---|---|
+| Planner search (orchestrator) | `BaseTool` with `should_defer=True` | `AgentTool` (different registry); `always_load=True` BaseTools (auto-loaded, not searched) |
+| Planner always-load (orchestrator) | `BaseTool` with `always_load=True` | `AgentTool`; deferred BaseTools |
+| `llm_node.tools[]` (sub-agent) | Any `BaseTool` by name | `AgentTool` (no `to_openai_schema()`) |
+| `tool_call_node` (sub-agent) | `AgentTool` matching `(this_agent, tool_name)` OR `("", tool_name)` global | Other agents' scoped AgentTools; all BaseTools |
+
+The cross-registry filters in `tools/__init__.py:24, 64` handle the case where a sub-agent is wrapped as a Planner-callable BaseTool (`TransferAgentTool`, `RefundAgentTool`) — hides it from the Planner if its channel variant doesn't exist.
+
+The legacy `_AGENT_TOOLS` dict in `app/agents/__init__.py:21` is a third bucket from an older LangChain-agent-scoped pattern; it's still referenced by `/api/tools` for display, but the new pattern is `AgentTool` with `agent_name`.
+
 #### `AgentTool` scope — per-agent vs. global
 
 Set `agent_name` on the class:
