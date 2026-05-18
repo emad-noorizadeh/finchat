@@ -168,6 +168,95 @@ def _validate_structure(raw: dict) -> None:
                         )
 
 
+_WIDGET_KWARG_TOP_LEVEL_ALLOWLIST = frozenset({"title"})
+
+
+def _validate_widget_response_node(node: dict, is_regulated: bool, warnings: list[str]) -> None:
+    """§4.6 — six checks for response_node(return_mode=widget). See
+    backend/docs/widget_response_node_migration.md."""
+    from app.widgets.catalog import WIDGET_CATALOG
+
+    nid = node.get("id")
+    data = node.get("data") or {}
+    widget_cfg = data.get("widget") or {}
+    widget_type = widget_cfg.get("widget_type") or ""
+
+    # Check 1: catalog lookup.
+    entry = WIDGET_CATALOG.get(widget_type)
+    if entry is None or not callable(entry.get("render_fn")):
+        raise TemplateValidationError(
+            f"response_node {nid!r}: unknown widget_type {widget_type!r} "
+            f"or no render_fn in catalog"
+        )
+
+    field_names = {f["name"] for f in (entry.get("fields") or []) if f.get("name")}
+    required_field_names = {
+        f["name"] for f in (entry.get("fields") or []) if f.get("required") is True
+    }
+
+    raw_kwargs = widget_cfg.get("kwargs")
+    has_kwargs = raw_kwargs is not None
+    if has_kwargs and not isinstance(raw_kwargs, dict):
+        raise TemplateValidationError(
+            f"response_node {nid!r}: widget.kwargs must be a dict, "
+            f"got {type(raw_kwargs).__name__}"
+        )
+
+    on_missing = widget_cfg.get("on_missing_required", "error")
+    fallback_text = widget_cfg.get("fallback_text") or ""
+
+    # Check 2: kwarg name check (title allowlisted as a top-level widget property).
+    if has_kwargs:
+        unknown = sorted(
+            k for k in raw_kwargs
+            if k not in field_names and k not in _WIDGET_KWARG_TOP_LEVEL_ALLOWLIST
+        )
+        if unknown:
+            raise TemplateValidationError(
+                f"response_node {nid!r}: widget.kwargs has unknown keys {unknown} "
+                f"for widget_type {widget_type!r}. Known fields: {sorted(field_names)}, "
+                f"plus allowlist: {sorted(_WIDGET_KWARG_TOP_LEVEL_ALLOWLIST)}"
+            )
+
+    # Check 3: required-kwarg coverage. Every required field must either appear
+    # in kwargs OR the template must declare on_missing_required=fallback_text.
+    if has_kwargs and required_field_names:
+        missing = sorted(required_field_names - set(raw_kwargs.keys()))
+        if missing and on_missing != "fallback_text":
+            raise TemplateValidationError(
+                f"response_node {nid!r}: required widget fields {missing} not declared "
+                f"in widget.kwargs. Either wire them upstream and add to kwargs, or set "
+                f"widget.on_missing_required=\"fallback_text\" with a fallback_text template."
+            )
+
+    # Check 4: fallback declaration.
+    if on_missing == "fallback_text" and not fallback_text.strip():
+        raise TemplateValidationError(
+            f"response_node {nid!r}: on_missing_required=fallback_text requires a "
+            f"non-empty widget.fallback_text"
+        )
+    if on_missing not in ("error", "fallback_text"):
+        raise TemplateValidationError(
+            f"response_node {nid!r}: widget.on_missing_required must be 'error' or "
+            f"'fallback_text', got {on_missing!r}"
+        )
+
+    # Check 5: regulated guard — must fail loud, no silent text fallback.
+    if is_regulated and on_missing == "fallback_text":
+        raise TemplateValidationError(
+            f"regulated template: response_node {nid!r} cannot use "
+            f"widget.on_missing_required=fallback_text — regulated flows must fail loud "
+            f"so an un-audited surface never reaches the user. Use 'error' instead."
+        )
+
+    # Check 6: legacy warning.
+    if not has_kwargs and widget_cfg.get("data_template") is not None:
+        warnings.append(
+            f"response_node {nid!r}: uses legacy widget.data_template — migrate to "
+            f"widget.kwargs (see backend/docs/widget_response_node_migration.md)"
+        )
+
+
 def _validate_semantics(raw: dict) -> list[str]:
     warnings: list[str] = []
     is_regulated = bool(raw.get("is_regulated", False))
@@ -186,6 +275,8 @@ def _validate_semantics(raw: dict) -> list[str]:
                 raise TemplateValidationError(
                     f"regulated template: llm_node {n['id']!r} must declare output_schema"
                 )
+        if n.get("type") == "response_node" and data.get("return_mode") == "widget":
+            _validate_widget_response_node(n, is_regulated, warnings)
 
     # Dependency-ordering warning (§1). For each edge's predicate, check
     # whether the prior edges in the same source's conditional group

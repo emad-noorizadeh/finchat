@@ -262,10 +262,19 @@ def transfer_form_widget(
     target_options: list | None = None,
     validation_id: str | None = None,
     title: str = "Confirm transfer",
+    from_account_hint: str | None = None,
+    to_account_hint: str | None = None,
+    transfer_type: str | None = None,
+    notice: str | None = None,
 ) -> str:
     """Interactive transfer form. User picks final account + amount and clicks
     Transfer; widget action handler calls transfer_money(submit). Used by
     Transfer chat template's response_node(return_mode=widget)."""
+    if isinstance(amount, str) and amount.strip():
+        try:
+            amount = float(amount)
+        except ValueError:
+            pass
     return json.dumps({
         "widget": "transfer_form",
         "title": title,
@@ -277,6 +286,10 @@ def transfer_form_widget(
             "source_options": source_options or [],
             "target_options": target_options or [],
             "validation_id": validation_id,
+            "from_account_hint": from_account_hint,
+            "to_account_hint": to_account_hint,
+            "transfer_type": transfer_type,
+            "notice": notice,
         },
         "actions": [
             {"id": "submit", "label": "Transfer", "style": "primary"},

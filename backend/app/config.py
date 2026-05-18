@@ -69,6 +69,15 @@ class Settings(BaseSettings):
     # section in enrichment.py changes.
     planner_prompt_revision: str = "v2026-04-22-compound-prose-default"
 
+    # Position-2 widget migration (see backend/docs/widget_response_node_migration.md).
+    # When True, response_node(return_mode=widget) calls the catalog builder
+    # for templates that opt in via `widget.kwargs`. When False, every
+    # response_node falls through the legacy `data_template` path —
+    # rollback without redeploy. Valid only between sequencing steps 2 and 4;
+    # after step 4 the legacy branch raises because migrated templates no
+    # longer ship `data_template`.
+    feature_response_node_builder: bool = True
+
     # CORS
     cors_origins: list[str] = []
 

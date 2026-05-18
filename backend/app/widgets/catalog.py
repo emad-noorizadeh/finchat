@@ -304,6 +304,17 @@ WIDGET_CATALOG: dict[str, dict] = {
             {"name": "source_options", "type": "array", "required": True},
             {"name": "target_options", "type": "array", "required": True},
             {"name": "validation_id", "type": "string", "required": False},
+            {"name": "from_account_hint", "type": "string", "required": False},
+            {"name": "to_account_hint", "type": "string", "required": False},
+            {"name": "transfer_type", "type": "string", "required": False},
+            {"name": "notice", "type": "string", "required": False},
+        ],
+        "runtime_fields": [
+            {"name": "_stage", "type": "string"},
+            {"name": "validation_result", "type": "object"},
+            {"name": "confirmation_id", "type": "string"},
+            {"name": "effective_date", "type": "string"},
+            {"name": "submit_error", "type": "string"},
         ],
         "sample_data": {
             "amount": 200,
@@ -318,6 +329,10 @@ WIDGET_CATALOG: dict[str, dict] = {
                 {"displayName": "Credit Card - 8222", "accountTempId": "A3"},
             ],
             "validation_id": None,
+            "from_account_hint": "checking",
+            "to_account_hint": "savings",
+            "transfer_type": "m2m",
+            "notice": None,
         },
         "standalone_render": "TransferForm",
         "composite_render": None,
@@ -349,8 +364,12 @@ WIDGET_CATALOG: dict[str, dict] = {
             {"name": "account_details",        "type": "object", "required": True},
             {"name": "refundable_transactions", "type": "array",  "required": True},
             {"name": "total_amount",           "type": "number", "required": False},
-            {"name": "selected_activity_reference", "type": "string", "required": False},
-            {"name": "decision",               "type": "object", "required": False},
+        ],
+        "runtime_fields": [
+            {"name": "_stage", "type": "string"},
+            {"name": "decision", "type": "object"},
+            {"name": "selected_activity_reference", "type": "string"},
+            {"name": "submit_error", "type": "string"},
         ],
         "sample_data": {
             "account_details": {
