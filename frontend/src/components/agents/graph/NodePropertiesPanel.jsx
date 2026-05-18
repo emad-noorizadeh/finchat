@@ -292,7 +292,8 @@ function ParseNodeEditor({ data, update, nodeId, allNodes, allEdges }) {
         <Section title="LLM parse">
           <ContextToggle
             checked={data.include_context !== false}
-            onChange={(v) => update('include_context', v)} />
+            onChange={(v) => update('include_context', v)}
+            onInsertPlaceholder={() => insertAtCursor('{{agent_context}}')} />
           <MarkdownField ref={promptRef} label="System prompt" value={data.system_prompt}
             onChange={(v) => update('system_prompt', v)}
             placeholder="Extract X from the user's utterance; return nulls if absent."
@@ -797,7 +798,10 @@ function LlmNodeEditor({ data, update, nodeId, allNodes, allEdges }) {
   return (
     <div className="space-y-3">
       <TextField label="Node label" value={data.label} onChange={(v) => update('label', v)} />
-      <ContextToggle checked={includeContext} onChange={(v) => update('include_context', v)} />
+      <ContextToggle
+        checked={includeContext}
+        onChange={(v) => update('include_context', v)}
+        onInsertPlaceholder={() => insertAtCursor('{{agent_context}}')} />
       <MarkdownField ref={promptRef} label="System prompt" value={data.system_prompt}
         onChange={(v) => update('system_prompt', v)}
         placeholder="You are the Help sub-agent..."
@@ -1054,8 +1058,11 @@ function pathPresent(obj, path) {
 
 
 // Shared toggle for opting a single llm_node / parse_node out of the
-// sub-agent's auto-prepended context.
-function ContextToggle({ checked, onChange }) {
+// sub-agent's auto-prepended context. Authors who want fine-grained
+// placement instead can drop {{agent_context}} into their prompt — the
+// runtime substitutes the context at that position and skips the
+// auto-prepend (see compose_system_prompt in app/agents/nodes/__init__.py).
+function ContextToggle({ checked, onChange, onInsertPlaceholder }) {
   return (
     <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded border border-gray-200 bg-gray-50">
       <input
@@ -1064,12 +1071,22 @@ function ContextToggle({ checked, onChange }) {
         onChange={(e) => onChange(e.target.checked)}
         className="mt-0.5"
       />
-      <span className="leading-snug">
+      <span className="leading-snug flex-1">
         <span className="font-medium text-gray-700">Include agent context</span>
         <span className="block text-gray-500 mt-0.5">
-          Prepends the sub-agent's <em>Context</em> tab content to this node's system prompt
-          at runtime. Untick to use the system prompt alone.
+          Prepends the sub-agent's <em>Context</em> tab content to the top of this
+          node's system prompt at runtime. To place it elsewhere, drop{' '}
+          <code className="bg-white border border-gray-200 px-1 rounded text-[10px]">{'{{agent_context}}'}</code>{' '}
+          anywhere in the prompt — the runtime substitutes the context at that
+          position and skips the auto-prepend. Untick to use the system prompt alone.
         </span>
+        {onInsertPlaceholder && (
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); onInsertPlaceholder() }}
+            className="mt-1.5 text-[10px] font-mono px-1.5 py-0.5 bg-white border border-emerald-300 text-emerald-700 rounded hover:bg-emerald-50"
+          >Insert {'{{agent_context}}'} at cursor</button>
+        )}
       </span>
     </label>
   )
@@ -1097,6 +1114,22 @@ function ResponseNodeEditor({ data, update }) {
   const widget = data.widget || {}
   const updateWidget = (k, v) => update('widget', { ...widget, [k]: v })
 
+  const [catalog, setCatalog] = useState(null)
+  useEffect(() => {
+    fetch('/api/widgets/catalog')
+      .then((r) => r.json())
+      .then((d) => setCatalog(d?.widgets || {}))
+      .catch(() => setCatalog({}))
+  }, [])
+  const widgetOptions = useMemo(() => {
+    if (!catalog) return []
+    return Object.entries(catalog).map(([key, entry]) => ({
+      value: key,
+      label: entry.display_name ? `${entry.display_name} (${key})` : key,
+    }))
+  }, [catalog])
+  const currentWidgetEntry = widget.widget_type ? (catalog || {})[widget.widget_type] : null
+
   return (
     <div className="space-y-3">
       <TextField label="Node label" value={data.label} onChange={(v) => update('label', v)} />
@@ -1118,9 +1151,18 @@ function ResponseNodeEditor({ data, update }) {
 
       {rm === 'widget' && (
         <Section title="Widget">
-          <TextField label="Widget type" value={widget.widget_type}
+          <SelectField label="Widget type" value={widget.widget_type || ''}
             onChange={(v) => updateWidget('widget_type', v)}
-            placeholder="transfer_form / profile_card / …" />
+            options={widgetOptions}
+            includeBlank={true} />
+          {catalog === null && (
+            <p className="text-[11px] text-gray-400 italic -mt-1.5">loading catalog…</p>
+          )}
+          {currentWidgetEntry && (
+            <p className="text-[11px] text-gray-500 italic -mt-1.5 leading-snug">
+              {currentWidgetEntry.description}
+            </p>
+          )}
           <TextField label="Title" value={widget.title}
             onChange={(v) => updateWidget('title', v)}
             placeholder="Confirm transfer" />

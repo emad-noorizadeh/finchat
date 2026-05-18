@@ -28,15 +28,11 @@ def build_llm_node_factory(data: dict) -> Callable:
     raw_prompt = data.get("system_prompt", "")
     tool_names = tuple(data.get("tools") or ())
     llm_variant = data.get("llm_variant", "sub_agent")
-    # Auto-prepend the sub-agent context unless this node explicitly opts
-    # out. The compiler injects `_agent_context` from template.context.
-    include_context = data.get("include_context", True)
-    agent_context = data.get("_agent_context", "") if include_context else ""
-    system_prompt = (
-        f"{agent_context}\n\n{raw_prompt}"
-        if agent_context and raw_prompt
-        else (agent_context or raw_prompt)
-    )
+    # Auto-prepend the sub-agent context — OR substitute {{agent_context}}
+    # in raw_prompt when the author placed the placeholder. The compiler
+    # injects `_agent_context` from template.context.
+    from app.agents.nodes import compose_system_prompt
+    system_prompt = compose_system_prompt(raw_prompt, data)
 
     async def handler(state: dict) -> dict:
         from app.services.llm_service import get_llm
