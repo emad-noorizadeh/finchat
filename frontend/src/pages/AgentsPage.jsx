@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAgentStore from '../store/agentStore'
 import AgentTable from '../components/agents/AgentTable'
+import client from '../api/client'
 
 export default function AgentsPage() {
   const { agents, loading, fetchAgents, deployAgent, disableAgent, deleteAgent } = useAgentStore()
   const [search, setSearch] = useState('')
+  const [importing, setImporting] = useState(false)
+  const importInputRef = useRef(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -17,6 +20,46 @@ export default function AgentsPage() {
     return () => clearTimeout(timeout)
   }, [search, fetchAgents])
 
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await client.post('/agents/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const { name, channel } = res.data || {}
+      alert(`Imported ${name} (${channel}).`)
+      fetchAgents(search)
+    } catch (err) {
+      alert('Import failed: ' + (err?.response?.data?.detail || err.message))
+    } finally {
+      setImporting(false)
+      if (importInputRef.current) importInputRef.current.value = ''
+    }
+  }
+
+  const handleExport = async (templateName) => {
+    try {
+      const res = await client.get(`/agents/${templateName}/export`, { responseType: 'blob' })
+      const dispo = res.headers['content-disposition'] || ''
+      const match = /filename="?([^";]+)"?/.exec(dispo)
+      const filename = match ? match[1] : `${templateName}.json`
+      const url = window.URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      alert('Export failed: ' + (err?.response?.data?.detail || err.message))
+    }
+  }
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-5">
@@ -26,12 +69,29 @@ export default function AgentsPage() {
             Sub-agents handle complex multi-step workflows
           </p>
         </div>
-        <button
-          onClick={() => navigate('/agents/builder')}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 cursor-pointer"
-        >
-          + Create Agent
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={handleImport}
+            className="hidden"
+          />
+          <button
+            onClick={() => importInputRef.current?.click()}
+            disabled={importing}
+            title="Upload a sub-agent JSON template (validated server-side)"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {importing ? 'Importing…' : 'Import JSON'}
+          </button>
+          <button
+            onClick={() => navigate('/agents/builder')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 cursor-pointer"
+          >
+            + Create Agent
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -67,6 +127,7 @@ export default function AgentsPage() {
           onDeploy={deployAgent}
           onDisable={disableAgent}
           onDelete={deleteAgent}
+          onExport={handleExport}
         />
       )}
     </div>

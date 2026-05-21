@@ -46,12 +46,40 @@
     },
 
     {
+      "id": "travel_lookup",
+      "type": "llm_node",
+      "data": {
+        "label": "Look up travel-card details via knowledge_search",
+        "llm_variant": "sub_agent",
+        "tools": ["knowledge_search"],
+        "system_prompt": "You are recommending a travel-rewards credit card. You MUST call `knowledge_search` to retrieve current details before recommending — do not answer from memory. Use a self-contained noun-phrase query such as 'travel rewards credit card features benefits annual fee points'."
+      }
+    },
+
+    {
+      "id": "travel_tools",
+      "type": "tool_node",
+      "data": {"label": "Run knowledge_search"}
+    },
+
+    {
+      "id": "travel_summarize",
+      "type": "llm_node",
+      "data": {
+        "label": "Compose the travel-card recommendation",
+        "llm_variant": "sub_agent",
+        "tools": [],
+        "system_prompt": "Using the knowledge_search results in the prior messages, recommend a travel-rewards card in 2–3 sentences. Cite specific card features only when they appear in the retrieved context — never invent details. If retrieval returned nothing relevant, say so honestly and suggest the user reach out to a card specialist."
+      }
+    },
+
+    {
       "id": "respond_travel",
       "type": "response_node",
       "data": {
-        "label": "Recommend travel card",
+        "label": "Return travel recommendation",
         "return_mode": "to_orchestrator",
-        "text_template": "Recommend the Globetrotter Travel Card to the user. Key selling points to highlight: 3x points on travel and dining, no foreign transaction fees, and a $200 yearly travel credit. The $95 annual fee usually pays itself back if they fly more than twice a year. Suggest they ask about other cards if they want a comparison."
+        "text_source": "last_assistant_message"
       }
     },
 
@@ -78,9 +106,13 @@
 
   "edges": [
     {"source": "parse_open", "target": "dispatch"},
-    {"source": "dispatch", "target": "respond_travel",   "predicate": "variables.interest == 'travel'"},
+    {"source": "dispatch", "target": "travel_lookup",    "predicate": "variables.interest == 'travel'"},
     {"source": "dispatch", "target": "respond_cashback", "predicate": "variables.interest == 'cashback'"},
     {"source": "dispatch", "target": "respond_gas",      "predicate": "variables.interest == 'gas'"},
-    {"source": "dispatch", "target": "ask",              "predicate": "true"}
+    {"source": "dispatch", "target": "ask",              "predicate": "true"},
+
+    {"source": "travel_lookup",    "target": "travel_tools"},
+    {"source": "travel_tools",     "target": "travel_summarize"},
+    {"source": "travel_summarize", "target": "respond_travel"}
   ]
 }

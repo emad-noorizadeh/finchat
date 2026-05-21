@@ -151,6 +151,7 @@ def list_files(
             "filename": f.filename,
             "file_type": f.file_type,
             "file_extension": f.file_extension,
+            "collection_name": f.collection_name,
             "chunk_count": f.chunk_count,
             "splitting_method": f.splitting_method,
             "status": f.status,

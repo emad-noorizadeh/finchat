@@ -31,7 +31,14 @@ function formatDate(dateStr) {
   }
 }
 
-export default function AgentTable({ agents, onEdit, onDeploy, onDisable, onDelete }) {
+export default function AgentTable({
+  agents,
+  onEdit,
+  onDeploy,
+  onDisable,
+  onDelete,
+  onExport,
+}) {
   const [expanded, setExpanded] = useState(null)
   const navigate = useNavigate()
 
@@ -107,6 +114,10 @@ export default function AgentTable({ agents, onEdit, onDeploy, onDisable, onDele
                       ...(group.variants.some(v => v.id && v.status === 'deployed') ? [
                         { label: 'Disable All', onClick: () => group.variants.filter(v => v.id && v.status === 'deployed').forEach(v => onDisable(v.id)) },
                       ] : []),
+                      ...(onExport ? group.variants.filter(v => v.template_name).map(v => ({
+                        label: `Export JSON (${v.channel})`,
+                        onClick: () => onExport(v.template_name),
+                      })) : []),
                       { label: 'Delete All', danger: true, onClick: () => {
                         if (confirm('Delete all variants of this agent?')) {
                           group.variants.filter(v => v.id).forEach(v => onDelete(v.id))
@@ -155,6 +166,9 @@ export default function AgentTable({ agents, onEdit, onDeploy, onDisable, onDele
                           : v.status === 'deployed'
                           ? { label: 'Disable', onClick: () => onDisable(v.id) }
                           : { label: 'Deploy', onClick: () => onDeploy(v.id) },
+                        ...(onExport && v.template_name ? [
+                          { label: 'Export JSON', onClick: () => onExport(v.template_name) },
+                        ] : []),
                         { label: 'Delete', danger: true, onClick: () => {
                           if (confirm('Delete this agent variant?')) onDelete(v.id)
                         }},

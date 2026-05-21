@@ -20,10 +20,17 @@ export default function FilesPage() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [dialog, setDialog] = useState(null) // { type: 'content'|'chunks', data, title }
   const [dialogMaximized, setDialogMaximized] = useState(false)
+  const [collectionFilter, setCollectionFilter] = useState('all')
 
   useEffect(() => {
     fetchFiles(SYSTEM_KNOWLEDGE_ID)
   }, [fetchFiles])
+
+  const collectionOptions = Array.from(
+    new Set(files.map((f) => f.collection_name).filter(Boolean))
+  ).sort()
+  const visibleFiles =
+    collectionFilter === 'all' ? files : files.filter((f) => f.collection_name === collectionFilter)
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0]
@@ -74,7 +81,17 @@ export default function FilesPage() {
           <h1 className="text-2xl font-bold text-gray-800">Knowledge</h1>
           <p className="text-gray-500 text-sm mt-1">Upload markdown (.md) files to build your knowledge base</p>
         </div>
-        <div>
+        <div className="flex items-center gap-3">
+          <select
+            value={collectionFilter}
+            onChange={(e) => setCollectionFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white cursor-pointer focus:outline-none focus:border-blue-500"
+          >
+            <option value="all">All collections</option>
+            {collectionOptions.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
           <input ref={fileInputRef} type="file" onChange={handleUpload} accept=".md" className="hidden" />
           <button
             onClick={() => fileInputRef.current?.click()}
@@ -88,7 +105,7 @@ export default function FilesPage() {
 
       {loading ? (
         <p className="text-gray-400">Loading...</p>
-      ) : files.length === 0 ? (
+      ) : visibleFiles.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg mb-2">No knowledge files yet</p>
           <p className="text-sm">Upload markdown (.md) files to enable knowledge search in chat</p>
@@ -99,6 +116,7 @@ export default function FilesPage() {
             <thead className="bg-gray-50 text-gray-500 text-left text-xs uppercase tracking-wider">
               <tr>
                 <th className="px-5 py-3 font-medium">Name</th>
+                <th className="px-5 py-3 font-medium w-48">Collection</th>
                 <th className="px-5 py-3 font-medium w-24">Chunks</th>
                 <th className="px-5 py-3 font-medium w-24">Status</th>
                 <th className="px-5 py-3 font-medium w-32">Uploaded</th>
@@ -106,7 +124,7 @@ export default function FilesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {files.map((f) => (
+              {visibleFiles.map((f) => (
                 <Fragment key={f.id}>
                   <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => handleExpand(f.id)}>
                     <td className="px-5 py-3">
@@ -119,6 +137,11 @@ export default function FilesPage() {
                         </svg>
                         <span className="font-medium text-gray-800">{f.filename}</span>
                       </div>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`font-mono text-[11px] px-2 py-0.5 rounded ${f.collection_name === 'system_knowledge' ? 'bg-gray-100 text-gray-600' : 'bg-blue-50 text-blue-700'}`}>
+                        {f.collection_name || '—'}
+                      </span>
                     </td>
                     <td className="px-5 py-3 text-gray-500">{f.chunk_count}</td>
                     <td className="px-5 py-3">
@@ -136,7 +159,7 @@ export default function FilesPage() {
 
                   {expandedId === f.id && (
                     <tr>
-                      <td colSpan={5} className="bg-gray-50 px-5 py-4">
+                      <td colSpan={6} className="bg-gray-50 px-5 py-4">
                         {loadingDetail ? (
                           <p className="text-gray-400 text-sm">Loading...</p>
                         ) : fileDetail ? (

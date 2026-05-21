@@ -12,9 +12,11 @@ business users in the builder.
 
 from __future__ import annotations
 
+import json
 import logging
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.agents.patterns import list_patterns
@@ -353,6 +355,90 @@ def disable_agent(template_name: str):
         raise HTTPException(404, f"Template {template_name!r} not found")
     _refresh_registry()
     return {"name": row.name, "status": row.status}
+
+
+@router.post("/import")
+async def import_template_json(file: UploadFile = File(...), request: Request = None):
+    """Import a sub-agent from an uploaded JSON template (the same shape
+    produced by GET /api/agents/{template_name}/export). Goes through the
+    standard validation path (`load_template`) and `upsert_template` so:
+
+      - schema/structure/predicate errors return 400
+      - a row locked for business-user edit returns 403
+      - matching (name, agent_name, channel) overwrites the existing row;
+        a new (name) creates a draft row tagged source='user'
+
+    Re-deploying the imported agent is a separate action (the Deploy
+    button), same as any other create/update through the UI.
+    """
+    raw_bytes = await file.read()
+    try:
+        raw = json.loads(raw_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        raise HTTPException(400, f"Uploaded file is not valid JSON: {e}")
+    if not isinstance(raw, dict):
+        raise HTTPException(400, "JSON template must be an object")
+
+    try:
+        row = upsert_template(
+            raw,
+            created_by=_actor(request) if request else "import",
+            source="user",
+            description=raw.get("description") or "",
+            search_hint=raw.get("search_hint") or "",
+            always_load=bool(raw.get("always_load", False)),
+            context=raw.get("context") or "",
+            knowledge_collections=list(raw.get("knowledge_collections") or []),
+        )
+    except TemplateValidationError as e:
+        raise HTTPException(400, f"Template invalid: {e}")
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+
+    _refresh_registry()
+    return {
+        "name": row.name,
+        "agent_name": row.agent_name,
+        "channel": row.channel,
+        "status": row.status,
+        "hash": (row.hash or "")[:12],
+    }
+
+
+@router.get("/{template_name}/export")
+def export_template(template_name: str):
+    """Export a DB-backed template row as a seed-compatible JSON document.
+    Re-importing the returned payload via /admin/import-file/<saved>.json
+    (after writing it to app/agents/templates/) reproduces the row.
+    """
+    row = get_row(template_name)
+    if row is None:
+        raise HTTPException(404, f"Template {template_name!r} not found")
+    gd = row.graph_definition or {}
+    payload = {
+        "name": row.name,
+        "agent_name": row.agent_name,
+        "display_name": row.display_name,
+        "channel": row.channel,
+        "template_schema_version": row.schema_version,
+        "is_regulated": row.is_regulated,
+        "supported_channels": list(row.supported_channels or [row.channel]),
+        "suspend_resume_allowed": row.suspend_resume_allowed,
+        "locked_for_business_user_edit": row.locked_for_business_user_edit,
+        "description": row.description or "",
+        "search_hint": row.search_hint or "",
+        "always_load": row.always_load,
+        "context": row.context or "",
+        "knowledge_collections": list(row.knowledge_collections or []),
+        "unsupported_channel_message": row.unsupported_channel_message,
+        "entry_node": row.entry_node,
+        "nodes": gd.get("nodes") or [],
+        "edges": gd.get("edges") or [],
+    }
+    headers = {
+        "Content-Disposition": f'attachment; filename="{row.agent_name}.{row.channel}.json"'
+    }
+    return JSONResponse(content=payload, headers=headers)
 
 
 @router.post("/admin/import-file/{filename}")
