@@ -36,9 +36,11 @@ from app.agents.nodes.interrupt_node import apply_resume_escape
 from app.agents.runtime import (
     clear_inner_state,
     load_inner_state,
+    register_thread_agent,
     reset_active_thread,
     save_inner_state,
     set_active_thread,
+    unregister_thread_agent,
 )
 from app.agents.template_compiler import compile_template
 from app.tools import register_tool
@@ -142,6 +144,7 @@ class TransferAgentTool(BaseTool):
 
         thread_id = f"{session_id}_{self.name}_{channel}"
         token = set_active_thread(thread_id)
+        register_thread_agent(thread_id, self.name)
 
         # Trace config — tags this sub-agent invocation as a child span in
         # LangSmith with filterable user/session/channel metadata.
@@ -199,6 +202,7 @@ class TransferAgentTool(BaseTool):
 
         finally:
             reset_active_thread(token)
+            unregister_thread_agent(thread_id)
 
 
 def _initial_inner_state(

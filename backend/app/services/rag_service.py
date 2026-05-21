@@ -19,22 +19,25 @@ class RAGService:
         query_text: str,
         top_k: int = None,
         similarity_threshold: float = None,
+        collections: list[str] | None = None,
     ) -> list[dict]:
-        """2-stage retrieval from the user's consolidated knowledge collection.
+        """2-stage retrieval across one or more knowledge collections.
 
-        Stage 1: Vector similarity search with threshold filtering.
-        Stage 2: Term overlap boost and re-ranking.
+        Stage 1: Vector similarity search with threshold filtering, fanned
+                 out across `collections` (defaults to system_knowledge).
+        Stage 2: Term overlap boost and re-ranking on the union of candidates.
         """
         top_k = top_k or RAGConfig.FINAL_TOP_K
         similarity_threshold = similarity_threshold or RAGConfig.SIMILARITY_THRESHOLD
 
-        # Gap 1: Single collection per user
-        collection_name = "system_knowledge"
-        candidates = self.query_collection(
-            collection_name, query_text,
-            top_k=RAGConfig.CANDIDATE_TOP_K,
-            similarity_threshold=similarity_threshold,
-        )
+        scope = list(collections) if collections else ["system_knowledge"]
+        candidates: list[dict] = []
+        for collection_name in scope:
+            candidates.extend(self.query_collection(
+                collection_name, query_text,
+                top_k=RAGConfig.CANDIDATE_TOP_K,
+                similarity_threshold=similarity_threshold,
+            ))
 
         if not candidates:
             return []
@@ -105,13 +108,20 @@ class RAGService:
 
         return parsed
 
-    def build_knowledge_context(self, user_id: str, query_text: str) -> str:
+    def build_knowledge_context(
+        self, user_id: str, query_text: str,
+        collections: list[str] | None = None,
+    ) -> str:
         """Build full knowledge context for LLM system prompt injection."""
-        context, _ = self.build_knowledge_context_with_sources(user_id, query_text)
+        context, _ = self.build_knowledge_context_with_sources(
+            user_id, query_text, collections=collections,
+        )
         return context
 
     def build_knowledge_context_with_sources(
         self, user_id: str, query_text: str,
+        collections: list[str] | None = None,
+        agent_name: str | None = None,
     ) -> tuple[str, list[dict]]:
         """Build knowledge context and return (context_str, sources_list).
 
@@ -124,11 +134,15 @@ class RAGService:
         Returns:
             (context_text, [{title, url}, ...])
         """
-        results = self.query(user_id=user_id, query_text=query_text)
+        scope = list(collections) if collections else ["system_knowledge"]
+        results = self.query(
+            user_id=user_id, query_text=query_text, collections=scope,
+        )
         if not results:
             logger.info(
-                "[kb_retrieval] query=%r top_score=None results=0 file_fallback=False",
-                query_text[:80],
+                "[kb_retrieval] query=%r top_score=None results=0 file_fallback=False "
+                "collections=%s agent=%s",
+                query_text[:80], scope, agent_name or "-",
             )
             return "", []
 
@@ -146,8 +160,10 @@ class RAGService:
             for chunks in file_chunks.values()
         )
         logger.info(
-            "[kb_retrieval] query=%r top_score=%.3f results=%d file_fallback=%s",
+            "[kb_retrieval] query=%r top_score=%.3f results=%d file_fallback=%s "
+            "collections=%s agent=%s",
             query_text[:80], top_score, len(results), file_fallback,
+            scope, agent_name or "-",
         )
 
         parts = []
@@ -288,24 +304,33 @@ class RAGService:
 
     _EMPTY_DESCRIPTOR = "Knowledge base is currently empty — no indexed documents yet."
 
-    def build_kb_descriptor(self) -> str:
-        """Generate the descriptor string from the current collection. Called on mutation only."""
-        try:
-            collection = self.chroma_client.get_collection("system_knowledge")
-            count = collection.count()
-        except ValueError:
-            return self._EMPTY_DESCRIPTOR
-        if count == 0:
-            return self._EMPTY_DESCRIPTOR
+    def build_kb_descriptor(self, collections: list[str] | None = None) -> str:
+        """Generate the descriptor string from one or more collections.
+        Called on mutation only."""
+        scope = list(collections) if collections else ["system_knowledge"]
+        files: set[str] = set()
+        sections: set[str] = set()
+        extensions: set[str] = set()
+        for name in scope:
+            try:
+                collection = self.chroma_client.get_collection(name)
+            except ValueError:
+                continue
+            if collection.count() == 0:
+                continue
+            sample = collection.get(include=["metadatas"], limit=500)
+            metas = sample.get("metadatas", []) or []
+            for m in metas:
+                fn = m.get("file_name")
+                if fn:
+                    files.add(fn)
+                    extensions.add(Path(fn).suffix.lstrip("."))
+                sh = m.get("section_heading")
+                if sh:
+                    sections.add(sh)
 
-        sample = collection.get(include=["metadatas"], limit=500)
-        metas = sample.get("metadatas", []) or []
-        files = {m.get("file_name") for m in metas if m.get("file_name")}
-        sections = {m.get("section_heading") for m in metas if m.get("section_heading")}
-        extensions = {
-            Path(m.get("file_name", "")).suffix.lstrip(".")
-            for m in metas if m.get("file_name")
-        }
+        if not files:
+            return self._EMPTY_DESCRIPTOR
 
         topic_list = sorted(s for s in sections if s)
         topics = ", ".join(topic_list)[:300] or "(no section headings indexed)"

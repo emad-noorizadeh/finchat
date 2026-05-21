@@ -33,10 +33,9 @@ class IndexingService:
         if not chunks:
             raise ValueError("File produced no chunks after splitting")
 
-        # Gap 1: Per-user collection
-        user_collection = "system_knowledge"
+        target_collection = collection_name or "system_knowledge"
         collection = self.chroma_client.get_or_create_collection(
-            name=user_collection,
+            name=target_collection,
             metadata={"hnsw:space": "cosine"},
         )
 

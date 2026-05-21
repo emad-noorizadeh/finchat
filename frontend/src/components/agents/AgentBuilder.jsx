@@ -204,6 +204,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
     search_hint: '',
     always_load: false,
     context: '',
+    knowledge_collections: [],
     system_prompt: '',
     tool_names: [],
     constraints: { require_confirmation: false },
@@ -213,6 +214,10 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
     created_by: '',
     graph_definition: { ...DEFAULT_GRAPH },
   })
+
+  const [collectionsCatalog, setCollectionsCatalog] = useState([])
+  const [agentFiles, setAgentFiles] = useState([])
+  const [filesLoading, setFilesLoading] = useState(false)
 
   useEffect(() => {
     client.get('/tools').then((res) => setTools(res.data)).catch(() => {})
@@ -231,6 +236,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
           search_hint: d.search_hint || '',
           always_load: d.always_load || false,
           context: d.context || '',
+          knowledge_collections: d.knowledge_collections || [],
           system_prompt: d.system_prompt || '',
           tool_names: d.tools || [],
           constraints: {},
@@ -292,6 +298,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
       search_hint: form.search_hint || "",
       always_load: !!form.always_load,
       context: form.context || "",
+      knowledge_collections: Array.isArray(form.knowledge_collections) ? form.knowledge_collections : [],
       graph_definition: form.graph_definition,
       supported_channels: form.supported_channels?.length ? form.supported_channels : [form.channel],
       is_regulated: !!form.is_regulated,
@@ -442,7 +449,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
           {/* Right-padding reserves the top-right corner for the fullscreen /
               collapse icon overlay so the "settings" tab isn't obscured. */}
           <div className="flex border-b border-gray-200 pr-20">
-            {['general', 'prompt', 'context', 'settings'].map((tab) => (
+            {['general', 'prompt', 'context', 'knowledge', 'settings'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setSettingsTab(tab)}
@@ -515,6 +522,22 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
               <PromptsOverview
                 nodes={form.graph_definition?.nodes || []}
                 onOpenNode={(n) => setSelectedNodeId(n.id)}
+              />
+            )}
+
+            {settingsTab === 'knowledge' && (
+              <KnowledgeTab
+                agentName={form.name}
+                isEdit={isEdit}
+                isLocked={isLocked}
+                collectionsCatalog={collectionsCatalog}
+                setCollectionsCatalog={setCollectionsCatalog}
+                agentFiles={agentFiles}
+                setAgentFiles={setAgentFiles}
+                filesLoading={filesLoading}
+                setFilesLoading={setFilesLoading}
+                selected={form.knowledge_collections || []}
+                onSelectedChange={(v) => setField('knowledge_collections', v)}
               />
             )}
 
@@ -689,3 +712,177 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
     </div>
   )
 }
+
+
+function KnowledgeTab({
+  agentName,
+  isEdit,
+  isLocked,
+  collectionsCatalog,
+  setCollectionsCatalog,
+  agentFiles,
+  setAgentFiles,
+  filesLoading,
+  setFilesLoading,
+  selected,
+  onSelectedChange,
+}) {
+  const fileInputRef = useRef(null)
+  const [uploadError, setUploadError] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const agentCollectionName = agentName ? `agent_${agentName}` : ''
+
+  useEffect(() => {
+    client
+      .get('/files/collections/list')
+      .then((res) => setCollectionsCatalog(res.data || []))
+      .catch(() => {})
+  }, [setCollectionsCatalog])
+
+  const refreshAgentFiles = useCallback(() => {
+    if (!agentName) return
+    setFilesLoading(true)
+    client
+      .get('/files', { params: { user_id: 'system', agent_name: agentName } })
+      .then((res) => setAgentFiles(res.data || []))
+      .catch(() => setAgentFiles([]))
+      .finally(() => setFilesLoading(false))
+  }, [agentName, setAgentFiles, setFilesLoading])
+
+  useEffect(() => {
+    refreshAgentFiles()
+  }, [refreshAgentFiles])
+
+  const toggle = (name) => {
+    if (isLocked) return
+    if (selected.includes(name)) {
+      onSelectedChange(selected.filter((n) => n !== name))
+    } else {
+      onSelectedChange([...selected, name])
+    }
+  }
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadError('')
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('user_id', 'system')
+      formData.append('agent_name', agentName)
+      await client.post('/files/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      refreshAgentFiles()
+      client
+        .get('/files/collections/list')
+        .then((res) => setCollectionsCatalog(res.data || []))
+        .catch(() => {})
+    } catch (err) {
+      setUploadError(err?.response?.data?.detail || 'Upload failed')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleDelete = async (fileId) => {
+    try {
+      await client.delete(`/files/${fileId}`)
+      refreshAgentFiles()
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg bg-sky-50 border border-sky-200 px-3 py-2.5 text-[12px] text-sky-900 leading-relaxed">
+        <strong>Knowledge collections.</strong> When this agent calls
+        <code className="text-[11px]"> knowledge_search</code>, retrieval is
+        scoped to the collections selected below. Leave the list empty to
+        fall back to the global <code className="text-[11px]">system_knowledge</code>
+        collection. Files uploaded here index into
+        <code className="text-[11px]"> {agentCollectionName || 'agent_<save the agent first>'}</code>.
+      </div>
+
+      <div>
+        <div className="text-xs font-medium text-gray-500 mb-1">Allowed collections</div>
+        <div className="border border-gray-200 rounded">
+          {collectionsCatalog.length === 0 && (
+            <div className="px-3 py-2 text-xs text-gray-400 italic">No collections yet.</div>
+          )}
+          {collectionsCatalog.map((c) => (
+            <label key={c.name} className="flex items-center gap-2 px-3 py-1.5 text-sm border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-gray-50">
+              <input
+                type="checkbox"
+                checked={selected.includes(c.name)}
+                onChange={() => toggle(c.name)}
+                disabled={isLocked}
+              />
+              <span className="font-mono text-[12px] text-gray-700">{c.name}</span>
+              <span className="ml-auto text-[11px] text-gray-400">{c.file_count} files</span>
+            </label>
+          ))}
+        </div>
+        <p className="text-[11px] text-gray-400 italic mt-1">
+          Empty selection → defaults to <code>system_knowledge</code>. Populated → replaces entirely.
+        </p>
+      </div>
+
+      <div className="border-t border-gray-200 pt-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-medium text-gray-500">
+            Files in <code className="font-mono">{agentCollectionName || '—'}</code>
+          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!isEdit || !agentName || uploading || isLocked}
+            className="text-xs px-2.5 py-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {uploading ? 'Uploading…' : 'Upload .md file'}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".md"
+            onChange={handleUpload}
+            className="hidden"
+          />
+        </div>
+        {uploadError && (
+          <div className="text-xs text-red-600 mb-2">{uploadError}</div>
+        )}
+        {!isEdit && (
+          <div className="text-xs text-gray-400 italic">Save the agent before uploading files.</div>
+        )}
+        {filesLoading && <div className="text-xs text-gray-400">Loading…</div>}
+        {!filesLoading && agentFiles.length === 0 && isEdit && (
+          <div className="text-xs text-gray-400 italic">No files in this agent's collection yet.</div>
+        )}
+        {!filesLoading && agentFiles.length > 0 && (
+          <div className="border border-gray-200 rounded">
+            {agentFiles.map((f) => (
+              <div key={f.id} className="flex items-center gap-2 px-3 py-1.5 text-sm border-b border-gray-100 last:border-b-0">
+                <span className="font-mono text-[12px] text-gray-700 truncate" title={f.filename}>{f.filename}</span>
+                <span className="text-[11px] text-gray-400">{f.chunk_count} chunks</span>
+                <span className={`text-[11px] px-1.5 rounded ${f.status === 'ready' ? 'bg-green-100 text-green-800' : f.status === 'error' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>{f.status}</span>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(f.id)}
+                  className="ml-auto text-[11px] text-red-600 hover:underline cursor-pointer"
+                  disabled={isLocked}
+                >
+                  delete
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+

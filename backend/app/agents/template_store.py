@@ -46,6 +46,7 @@ def _row_to_raw(row: SubAgentTemplate) -> dict:
         "nodes": gd.get("nodes") or [],
         "edges": gd.get("edges") or [],
         "context": row.context or "",
+        "knowledge_collections": list(row.knowledge_collections or []),
     }
 
 
@@ -109,6 +110,7 @@ def upsert_template(
     search_hint: str = "",
     always_load: bool = False,
     context: str = "",
+    knowledge_collections: list[str] | None = None,
 ) -> SubAgentTemplate:
     """Validate + persist a template. Returns the saved row.
 
@@ -150,6 +152,11 @@ def upsert_template(
                 "edges": list(loaded.edges),
             },
             "context": context or loaded.context or "",
+            "knowledge_collections": list(
+                knowledge_collections
+                if knowledge_collections is not None
+                else loaded.knowledge_collections
+            ),
         }
 
         if existing:
@@ -165,6 +172,13 @@ def upsert_template(
             db.add(existing)
             db.commit()
             db.refresh(existing)
+            # Propagate knowledge_collections to all channel variants of
+            # the same agent. Per the design, knowledge_collections is an
+            # agent-level field but stored per-row for schema simplicity;
+            # the API treats "agent" as the editing unit.
+            _sync_knowledge_collections_to_siblings(
+                db, loaded.agent_name, loaded.name, values["knowledge_collections"],
+            )
             logger.info(
                 "[template_updated] name=%s by=%s source=%s",
                 loaded.name, created_by, source,
@@ -180,8 +194,37 @@ def upsert_template(
         db.add(row)
         db.commit()
         db.refresh(row)
+        _sync_knowledge_collections_to_siblings(
+            db, loaded.agent_name, loaded.name, values["knowledge_collections"],
+        )
         logger.info("[template_created] name=%s by=%s source=%s", loaded.name, created_by, source)
         return row
+
+
+def _sync_knowledge_collections_to_siblings(
+    db: Session, agent_name: str, exclude_name: str, value: list[str],
+) -> None:
+    """Write the same knowledge_collections to every other row that shares
+    this agent_name. knowledge_collections is conceptually an agent-level
+    field — chat and voice variants always carry the same allow-list."""
+    siblings = db.exec(
+        select(SubAgentTemplate).where(
+            SubAgentTemplate.agent_name == agent_name,
+            SubAgentTemplate.name != exclude_name,
+        )
+    ).all()
+    if not siblings:
+        return
+    from datetime import datetime, timezone
+    changed = False
+    for s in siblings:
+        if list(s.knowledge_collections or []) != list(value):
+            s.knowledge_collections = list(value)
+            s.updated_at = datetime.now(timezone.utc)
+            db.add(s)
+            changed = True
+    if changed:
+        db.commit()
 
 
 def set_status(name: str, status: str) -> SubAgentTemplate | None:
@@ -346,4 +389,5 @@ def _row_values_from_raw(raw: dict, loaded) -> dict:
             "edges": list(loaded.edges),
         },
         "context": loaded.context or raw.get("context") or "",
+        "knowledge_collections": list(loaded.knowledge_collections),
     }

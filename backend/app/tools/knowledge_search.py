@@ -100,16 +100,30 @@ quote source URLs inline — Sources are appended automatically.
         return f'Searching knowledge base for "{query}"...'
 
     async def execute(self, input: dict, context: dict) -> ToolResult:
+        from app.agents.runtime import current_agent_name
+        from app.agents.template_store import list_rows_all
         from app.database import get_chroma_client
         from app.services.rag_service import RAGService
 
         query = input.get("query", "")
 
+        agent_name = current_agent_name()
+        collections: list[str] = []
+        if agent_name:
+            for r in list_rows_all():
+                if r.agent_name == agent_name:
+                    collections = list(r.knowledge_collections or [])
+                    if collections:
+                        break
+
         chroma = get_chroma_client()
         rag = RAGService(chroma)
 
         llm_text, sources = rag.build_knowledge_context_with_sources(
-            user_id="system", query_text=query,
+            user_id="system",
+            query_text=query,
+            collections=collections or None,
+            agent_name=agent_name,
         )
         if not llm_text:
             return ToolResult(to_llm=f"No relevant documents found for query: {query}")

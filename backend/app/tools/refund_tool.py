@@ -20,9 +20,11 @@ from app.agents.nodes.interrupt_node import apply_resume_escape
 from app.agents.runtime import (
     clear_inner_state,
     load_inner_state,
+    register_thread_agent,
     reset_active_thread,
     save_inner_state,
     set_active_thread,
+    unregister_thread_agent,
 )
 from app.agents.state import SubAgentState
 from app.agents.template_compiler import compile_template
@@ -112,6 +114,7 @@ class RefundAgentTool(BaseTool):
 
         thread_id = f"{session_id}_{self.name}_{channel}"
         token = set_active_thread(thread_id)
+        register_thread_agent(thread_id, self.name)
 
         from app.observability import trace_config
         inner_config = trace_config(
@@ -159,6 +162,7 @@ class RefundAgentTool(BaseTool):
             return result
         finally:
             reset_active_thread(token)
+            unregister_thread_agent(thread_id)
 
 
 def _initial_inner_state(

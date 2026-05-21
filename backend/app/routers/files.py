@@ -56,6 +56,7 @@ async def upload_file(
     file: UploadFile,
     user_id: str = Form(...),
     splitting_method: str = Form("recursive"),
+    agent_name: str | None = Form(None),
     session: Session = Depends(get_session),
 ):
     # Validate extension
@@ -80,14 +81,18 @@ async def upload_file(
     file_path = user_dir / file.filename
     file_path.write_bytes(content)
 
-    # Create File record — collection is per-user (system-wide for knowledge)
+    # Per-agent uploads route into `agent_<name>` so knowledge_search can
+    # scope retrieval to the calling sub-agent. Plain uploads stay in the
+    # global system_knowledge collection.
+    collection_name = f"agent_{agent_name}" if agent_name else "system_knowledge"
+
     file_record = File(
         user_id=user_id,
         filename=file.filename,
         path=str(file_path),
         file_type=file.content_type or "",
         file_extension=ext,
-        collection_name="system_knowledge",
+        collection_name=collection_name,
         splitting_method=splitting_method,
         status="processing",
     )
@@ -127,12 +132,18 @@ async def upload_file(
 
 
 @router.get("")
-def list_files(user_id: str, session: Session = Depends(get_session)):
-    stmt = (
-        select(File)
-        .where(File.user_id == user_id)
-        .order_by(File.created_at.desc())
-    )
+def list_files(
+    user_id: str,
+    collection_name: str | None = None,
+    agent_name: str | None = None,
+    session: Session = Depends(get_session),
+):
+    stmt = select(File).where(File.user_id == user_id)
+    if collection_name:
+        stmt = stmt.where(File.collection_name == collection_name)
+    elif agent_name:
+        stmt = stmt.where(File.collection_name == f"agent_{agent_name}")
+    stmt = stmt.order_by(File.created_at.desc())
     files = session.exec(stmt).all()
     return [
         {
@@ -147,6 +158,35 @@ def list_files(user_id: str, session: Session = Depends(get_session)):
             "created_at": f.created_at.isoformat(),
         }
         for f in files
+    ]
+
+
+@router.get("/collections/list")
+def list_collections(session: Session = Depends(get_session)):
+    """Enumerate the knowledge collections backed by Chroma. Returns one row
+    per collection that has at least one indexed file, plus the global
+    system_knowledge entry even when empty so the Agent Builder UI can
+    always select it.
+
+    Used by the Agent Builder's Knowledge tab to populate the
+    knowledge_collections multi-select.
+    """
+    from sqlalchemy import func
+
+    rows = session.exec(
+        select(File.collection_name, func.count(File.id))
+        .group_by(File.collection_name)
+    ).all()
+
+    counts: dict[str, int] = {}
+    for cn, ct in rows:
+        if cn:
+            counts[cn] = int(ct)
+    counts.setdefault("system_knowledge", 0)
+
+    return [
+        {"name": name, "file_count": counts[name]}
+        for name in sorted(counts.keys())
     ]
 
 

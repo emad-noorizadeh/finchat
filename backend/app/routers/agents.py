@@ -190,6 +190,7 @@ def get_agent_variant(agent_name: str, channel: str):
         "unsupported_channel_message": row.unsupported_channel_message,
         "status": row.status,
         "context": row.context or "",
+        "knowledge_collections": list(row.knowledge_collections or []),
     }
 
 
@@ -213,6 +214,7 @@ class AgentUpsertRequest(BaseModel):
     entry_node: str | None = None
     template_schema_version: int = 1
     context: str = ""
+    knowledge_collections: list[str] = []
 
 
 def _actor(request: Request) -> str:
@@ -242,6 +244,7 @@ def _build_raw(req: AgentUpsertRequest) -> dict:
         "nodes": nodes,
         "edges": graph.get("edges") or [],
         "context": req.context or "",
+        "knowledge_collections": list(req.knowledge_collections or []),
     }
 
 
@@ -289,6 +292,7 @@ def create_agent(req: AgentUpsertRequest, request: Request):
             search_hint=req.search_hint,
             always_load=req.always_load,
             context=req.context or "",
+            knowledge_collections=list(req.knowledge_collections or []),
         )
     except TemplateValidationError as e:
         raise HTTPException(400, f"Template invalid: {e}")
@@ -311,6 +315,7 @@ def update_agent(template_name: str, req: AgentUpsertRequest, request: Request):
             search_hint=req.search_hint,
             always_load=req.always_load,
             context=req.context or "",
+            knowledge_collections=list(req.knowledge_collections or []),
         )
     except TemplateValidationError as e:
         raise HTTPException(400, f"Template invalid: {e}")

@@ -65,6 +65,15 @@ class SubAgentTemplate(SQLModel, table=True):
     # data.include_context=false. Plain text — Markdown by convention.
     context: str = ""
 
+    # Per-sub-agent RAG collection allow-list. When this sub-agent is the
+    # caller, knowledge_search restricts retrieval to these Chroma
+    # collections. Empty list → falls back to ["system_knowledge"] so
+    # existing rows keep their current behaviour.
+    knowledge_collections: list = Field(
+        default_factory=list,
+        sa_column=Column(JSON, default=[]),
+    )
+
     # Auditing.
     created_by: str = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

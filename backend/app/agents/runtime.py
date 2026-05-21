@@ -39,6 +39,13 @@ def clear_inner_state(thread_id: str) -> None:
 # driver around graph astream() calls; node handlers read via current_thread.
 _ACTIVE_THREAD: ContextVar[str | None] = ContextVar("_subagent_active_thread", default=None)
 
+# thread_id → agent_name map. Populated by sub-agent drivers around the same
+# scope as set_active_thread. Tools (notably knowledge_search) read it via
+# current_agent_name() to scope retrieval to the calling sub-agent's
+# knowledge_collections allow-list. When None, the main orchestrator is the
+# caller and the tool falls back to the global system_knowledge collection.
+_THREAD_AGENT: dict[str, str] = {}
+
 
 def register_tool_caller(thread_id: str, tool_caller: Callable) -> None:
     _TOOL_CALLERS[thread_id] = tool_caller
@@ -64,3 +71,20 @@ def reset_active_thread(token) -> None:
 
 def get_tool_caller_for(thread_id: str) -> Callable | None:
     return _TOOL_CALLERS.get(thread_id)
+
+
+def register_thread_agent(thread_id: str, agent_name: str) -> None:
+    _THREAD_AGENT[thread_id] = agent_name
+
+
+def unregister_thread_agent(thread_id: str) -> None:
+    _THREAD_AGENT.pop(thread_id, None)
+
+
+def current_agent_name() -> str | None:
+    """Return the agent_name of the currently-executing sub-agent, or None
+    when the main orchestrator is the caller."""
+    tid = _ACTIVE_THREAD.get()
+    if not tid:
+        return None
+    return _THREAD_AGENT.get(tid)
