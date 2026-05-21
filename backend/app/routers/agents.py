@@ -157,6 +157,45 @@ def get_agent_detail(agent_name: str):
     }
 
 
+@router.get("/export/{template_name}")
+def export_template(template_name: str):
+    """Export a DB-backed template row as a seed-compatible JSON document.
+    Declared BEFORE the `/{agent_name}/{channel}` route below so the literal
+    `/export/` prefix wins — otherwise FastAPI matches the variant route
+    first and returns 404. Re-importing the returned payload via
+    POST /api/agents/import (or the admin endpoint after writing it to
+    app/agents/templates/) reproduces the row.
+    """
+    row = get_row(template_name)
+    if row is None:
+        raise HTTPException(404, f"Template {template_name!r} not found")
+    gd = row.graph_definition or {}
+    payload = {
+        "name": row.name,
+        "agent_name": row.agent_name,
+        "display_name": row.display_name,
+        "channel": row.channel,
+        "template_schema_version": row.schema_version,
+        "is_regulated": row.is_regulated,
+        "supported_channels": list(row.supported_channels or [row.channel]),
+        "suspend_resume_allowed": row.suspend_resume_allowed,
+        "locked_for_business_user_edit": row.locked_for_business_user_edit,
+        "description": row.description or "",
+        "search_hint": row.search_hint or "",
+        "always_load": row.always_load,
+        "context": row.context or "",
+        "knowledge_collections": list(row.knowledge_collections or []),
+        "unsupported_channel_message": row.unsupported_channel_message,
+        "entry_node": row.entry_node,
+        "nodes": gd.get("nodes") or [],
+        "edges": gd.get("edges") or [],
+    }
+    headers = {
+        "Content-Disposition": f'attachment; filename="{row.agent_name}.{row.channel}.json"'
+    }
+    return JSONResponse(content=payload, headers=headers)
+
+
 @router.get("/{agent_name}/{channel}")
 def get_agent_variant(agent_name: str, channel: str):
     row = get_row_by_agent_channel(agent_name, channel)
@@ -403,42 +442,6 @@ async def import_template_json(file: UploadFile = File(...), request: Request = 
         "status": row.status,
         "hash": (row.hash or "")[:12],
     }
-
-
-@router.get("/{template_name}/export")
-def export_template(template_name: str):
-    """Export a DB-backed template row as a seed-compatible JSON document.
-    Re-importing the returned payload via /admin/import-file/<saved>.json
-    (after writing it to app/agents/templates/) reproduces the row.
-    """
-    row = get_row(template_name)
-    if row is None:
-        raise HTTPException(404, f"Template {template_name!r} not found")
-    gd = row.graph_definition or {}
-    payload = {
-        "name": row.name,
-        "agent_name": row.agent_name,
-        "display_name": row.display_name,
-        "channel": row.channel,
-        "template_schema_version": row.schema_version,
-        "is_regulated": row.is_regulated,
-        "supported_channels": list(row.supported_channels or [row.channel]),
-        "suspend_resume_allowed": row.suspend_resume_allowed,
-        "locked_for_business_user_edit": row.locked_for_business_user_edit,
-        "description": row.description or "",
-        "search_hint": row.search_hint or "",
-        "always_load": row.always_load,
-        "context": row.context or "",
-        "knowledge_collections": list(row.knowledge_collections or []),
-        "unsupported_channel_message": row.unsupported_channel_message,
-        "entry_node": row.entry_node,
-        "nodes": gd.get("nodes") or [],
-        "edges": gd.get("edges") or [],
-    }
-    headers = {
-        "Content-Disposition": f'attachment; filename="{row.agent_name}.{row.channel}.json"'
-    }
-    return JSONResponse(content=payload, headers=headers)
 
 
 @router.post("/admin/import-file/{filename}")

@@ -43,7 +43,7 @@ export default function AgentsPage() {
 
   const handleExport = async (templateName) => {
     try {
-      const res = await client.get(`/agents/${templateName}/export`, { responseType: 'blob' })
+      const res = await client.get(`/agents/export/${templateName}`, { responseType: 'blob' })
       const dispo = res.headers['content-disposition'] || ''
       const match = /filename="?([^";]+)"?/.exec(dispo)
       const filename = match ? match[1] : `${templateName}.json`
