@@ -509,6 +509,136 @@ function ToolCallNodeEditor({ data, update, nodeIds, agentName }) {
 }
 
 
+function ParallelToolsNodeEditor({ data, update, agentName }) {
+  const [tools, setTools] = useState(null)
+  useEffect(() => {
+    const q = agentName ? `?agent_name=${encodeURIComponent(agentName)}` : ''
+    fetch(`/api/tools${q}`).then((r) => r.json()).then((d) => setTools(d || [])).catch(() => setTools([]))
+  }, [agentName])
+
+  const rawList = Array.isArray(tools) ? tools : []
+  const list = rawList.filter((t) => Array.isArray(t.actions) && t.actions.length > 0)
+  const toolByName = new Map(list.map((t) => [t.name, t]))
+
+  const entries = Array.isArray(data.tools) ? data.tools : []
+  const setEntries = (next) => update('tools', next)
+  const updateEntry = (idx, key, value) => {
+    setEntries(entries.map((e, i) => (i === idx ? { ...e, [key]: value } : e)))
+  }
+  const addEntry = () => {
+    setEntries([...entries, { tool: '', action: '', params: {}, output_var: '' }])
+  }
+  const removeEntry = (idx) => {
+    setEntries(entries.filter((_, i) => i !== idx))
+  }
+
+  return (
+    <div className="space-y-3">
+      <TextField label="Node label" value={data.label} onChange={(v) => update('label', v)} />
+
+      <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-900 leading-relaxed">
+        <strong>Parallel tool fan-out.</strong> Every entry below runs concurrently and
+        each result lands in <code>variables[output_var]</code>. The downstream node
+        (typically an <code>llm_node</code> with <code>{`{{variables.X}}`}</code> in its
+        prompt) synthesizes them. <code>output_var</code> must be unique across rows.
+      </div>
+
+      <div className="space-y-3">
+        {entries.length === 0 && (
+          <p className="text-xs text-gray-400 italic">No tools yet. Add at least one.</p>
+        )}
+        {entries.map((entry, idx) => {
+          const tool = entry.tool ? toolByName.get(entry.tool) : null
+          const actions = tool?.actions || []
+          const currentAction = actions.find((a) => a.name === entry.action)
+          return (
+            <div key={idx} className="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50/40">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono text-gray-500">tools[{idx}]</span>
+                <button
+                  type="button"
+                  onClick={() => removeEntry(idx)}
+                  className="text-[11px] text-red-600 hover:underline cursor-pointer"
+                >
+                  remove
+                </button>
+              </div>
+              <ComboField
+                label="Tool"
+                value={entry.tool || ''}
+                onChange={(v) => { updateEntry(idx, 'tool', v); updateEntry(idx, 'action', '') }}
+                options={list.map((t) => ({ value: t.name, label: t.name }))}
+                placeholder="Tool name"
+              />
+              {actions.length > 0 ? (
+                <SelectField
+                  label="Action"
+                  value={entry.action || ''}
+                  onChange={(v) => updateEntry(idx, 'action', v)}
+                  options={actions.map((a) => ({ value: a.name, label: a.name }))}
+                  includeBlank={true}
+                />
+              ) : (
+                <TextField
+                  label="Action"
+                  value={entry.action || ''}
+                  onChange={(v) => updateEntry(idx, 'action', v)}
+                  placeholder="canonical action name"
+                />
+              )}
+              {currentAction?.description && (
+                <p className="text-[11px] text-gray-500 italic -mt-1">{currentAction.description}</p>
+              )}
+              <ParamsEditor
+                schema={currentAction?.params_schema}
+                value={entry.params}
+                onChange={(v) => updateEntry(idx, 'params', v)} />
+              <TextField
+                label="Output variable"
+                value={entry.output_var || ''}
+                onChange={(v) => updateEntry(idx, 'output_var', v)}
+                placeholder="profile / accounts / kb_results" />
+              <JsonField
+                label="post_write (applied on success only)"
+                value={entry.post_write}
+                onChange={(v) => updateEntry(idx, 'post_write', v)}
+                placeholder='{"flag": false}' />
+            </div>
+          )
+        })}
+        <button
+          type="button"
+          onClick={addEntry}
+          className="text-xs px-3 py-1.5 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 cursor-pointer"
+        >
+          + Add tool entry
+        </button>
+      </div>
+
+      <SelectField
+        label="On error"
+        value={data.on_error || 'collect'}
+        onChange={(v) => update('on_error', v)}
+        options={[
+          { value: 'collect', label: 'collect — record per-entry errors, keep siblings running' },
+          { value: 'abort', label: 'abort — first failure cancels every entry' },
+        ]}
+        includeBlank={false} />
+      <TextField
+        label="Timeout (seconds, optional)"
+        value={data.timeout_seconds != null ? String(data.timeout_seconds) : ''}
+        onChange={(v) => {
+          const trimmed = (v || '').trim()
+          if (!trimmed) { update('timeout_seconds', null); return }
+          const n = Number(trimmed)
+          update('timeout_seconds', Number.isFinite(n) && n > 0 ? n : null)
+        }}
+        placeholder="leave blank for no timeout" />
+    </div>
+  )
+}
+
+
 // --- Params editor: schema-driven form with per-field inputs ---
 //
 // When the action's params_schema declares `properties`, render a typed form
@@ -1358,6 +1488,9 @@ export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNod
       )}
       {node.type === 'tool_call_node' && (
         <ToolCallNodeEditor data={node.data} update={update} nodeIds={nodeIds} agentName={agentName} />
+      )}
+      {node.type === 'parallel_tools_node' && (
+        <ParallelToolsNodeEditor data={node.data} update={update} agentName={agentName} />
       )}
       {node.type === 'interrupt_node' && (
         <InterruptNodeEditor data={node.data} update={update} slotNames={slotNames} supportedChannels={supportedChannels} />

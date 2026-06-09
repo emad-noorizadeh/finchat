@@ -5,6 +5,7 @@ const NODE_TYPES = [
   { type: 'parse_node',     label: 'Parse',     icon: '📥', description: 'Extract values from the latest user message (regex or LLM).' },
   { type: 'condition_node', label: 'Condition', icon: '🔀', description: 'Dispatcher — routes to a node by evaluating predicates in order.' },
   { type: 'tool_call_node', label: 'Tool Call', icon: '🔧', description: 'Call a tool directly with templated params; write result to a variable.' },
+  { type: 'parallel_tools_node', label: 'Parallel Tools', icon: '⫴', description: 'Run N tool calls in parallel; merge each result into variables.' },
   { type: 'interrupt_node', label: 'Interrupt', icon: '⏸', description: 'Pause and ask the user. The outer graph resumes with their reply.' },
   { type: 'llm_node',       label: 'LLM',       icon: '🤖', description: 'Free-form LLM turn with a scoped prompt and optional tool subset.' },
   { type: 'tool_node',      label: 'Tool Run',  icon: '⚙️', description: 'Execute tool calls emitted by the previous llm_node.' },

@@ -153,23 +153,94 @@ def _validate_structure(raw: dict) -> None:
     # post_write shape (#3 → v4 followup).
     for n in nodes:
         if n.get("type") == "tool_call_node":
-            post_write = (n.get("data") or {}).get("post_write")
-            if post_write is not None:
-                if not isinstance(post_write, dict):
-                    raise TemplateValidationError(
-                        f"tool_call_node {n['id']!r} post_write must be a flat dict"
-                    )
-                for k, v in post_write.items():
-                    if not isinstance(k, str):
-                        raise TemplateValidationError(
-                            f"tool_call_node {n['id']!r} post_write keys must be strings"
-                        )
-                    try:
-                        json.dumps(v)
-                    except (TypeError, ValueError):
-                        raise TemplateValidationError(
-                            f"tool_call_node {n['id']!r} post_write[{k!r}] is not JSON-serializable"
-                        )
+            _validate_post_write(
+                (n.get("data") or {}).get("post_write"),
+                origin=f"tool_call_node {n['id']!r}",
+            )
+        if n.get("type") == "parallel_tools_node":
+            _validate_parallel_tools_node(n)
+
+
+def _validate_post_write(post_write, *, origin: str) -> None:
+    """Shared post_write validation — flat dict of (str → JSON-serializable)."""
+    if post_write is None:
+        return
+    if not isinstance(post_write, dict):
+        raise TemplateValidationError(f"{origin} post_write must be a flat dict")
+    for k, v in post_write.items():
+        if not isinstance(k, str):
+            raise TemplateValidationError(f"{origin} post_write keys must be strings")
+        try:
+            json.dumps(v)
+        except (TypeError, ValueError):
+            raise TemplateValidationError(
+                f"{origin} post_write[{k!r}] is not JSON-serializable"
+            )
+
+
+def _validate_parallel_tools_node(node: dict) -> None:
+    """parallel_tools_node static validation — mirrors what the factory
+    enforces, but at template-load time so authors get a clean 400 on save."""
+    nid = node.get("id")
+    data = node.get("data") or {}
+
+    entries = data.get("tools")
+    if not isinstance(entries, list) or not entries:
+        raise TemplateValidationError(
+            f"parallel_tools_node {nid!r} data.tools must be a non-empty list"
+        )
+
+    on_error = data.get("on_error", "collect")
+    if on_error not in ("collect", "abort"):
+        raise TemplateValidationError(
+            f"parallel_tools_node {nid!r} data.on_error must be 'collect' or 'abort', got {on_error!r}"
+        )
+
+    timeout = data.get("timeout_seconds")
+    if timeout is not None and (not isinstance(timeout, (int, float)) or timeout <= 0):
+        raise TemplateValidationError(
+            f"parallel_tools_node {nid!r} data.timeout_seconds must be a positive number or null"
+        )
+
+    seen_output_vars: set[str] = set()
+    for i, raw in enumerate(entries):
+        if not isinstance(raw, dict):
+            raise TemplateValidationError(
+                f"parallel_tools_node {nid!r} data.tools[{i}] must be an object"
+            )
+        tool = (raw.get("tool") or "").strip()
+        action = (raw.get("action") or "").strip()
+        output_var = (raw.get("output_var") or "").strip()
+        params = raw.get("params") or {}
+        post_write = raw.get("post_write")
+
+        if not tool:
+            raise TemplateValidationError(
+                f"parallel_tools_node {nid!r} data.tools[{i}].tool is required"
+            )
+        if not action:
+            raise TemplateValidationError(
+                f"parallel_tools_node {nid!r} data.tools[{i}].action is required "
+                f"(no legacy aliases — pass the canonical action explicitly)"
+            )
+        if not output_var:
+            raise TemplateValidationError(
+                f"parallel_tools_node {nid!r} data.tools[{i}].output_var is required"
+            )
+        if output_var in seen_output_vars:
+            raise TemplateValidationError(
+                f"parallel_tools_node {nid!r} data.tools[{i}].output_var={output_var!r} "
+                f"duplicates an earlier entry — output_vars must be unique within the node"
+            )
+        if not isinstance(params, dict):
+            raise TemplateValidationError(
+                f"parallel_tools_node {nid!r} data.tools[{i}].params must be a dict"
+            )
+        seen_output_vars.add(output_var)
+        _validate_post_write(
+            post_write,
+            origin=f"parallel_tools_node {nid!r} tools[{i}]",
+        )
 
 
 _WIDGET_KWARG_TOP_LEVEL_ALLOWLIST = frozenset({"title"})

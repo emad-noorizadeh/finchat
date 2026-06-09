@@ -1,4 +1,4 @@
-"""Sub-agent node type registry. 7 node types.
+"""Sub-agent node type registry. 8 node types.
 
 Each handler is an async function `(state) -> dict` that returns a state
 update (LangGraph convention). Nodes are registered by string key; the
@@ -72,10 +72,11 @@ def compose_system_prompt(raw_prompt: str, data: dict) -> str:
 
 # --- Registrations (imports trigger register_node_type calls) ---
 
-from app.agents.nodes import parse_node          # noqa: F401
-from app.agents.nodes import tool_call_node      # noqa: F401
-from app.agents.nodes import condition_node      # noqa: F401
-from app.agents.nodes import interrupt_node      # noqa: F401
-from app.agents.nodes import llm_node            # noqa: F401
-from app.agents.nodes import tool_node           # noqa: F401
-from app.agents.nodes import response_node       # noqa: F401
+from app.agents.nodes import parse_node            # noqa: F401
+from app.agents.nodes import tool_call_node        # noqa: F401
+from app.agents.nodes import parallel_tools_node   # noqa: F401
+from app.agents.nodes import condition_node        # noqa: F401
+from app.agents.nodes import interrupt_node        # noqa: F401
+from app.agents.nodes import llm_node              # noqa: F401
+from app.agents.nodes import tool_node             # noqa: F401
+from app.agents.nodes import response_node         # noqa: F401

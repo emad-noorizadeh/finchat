@@ -12,6 +12,7 @@ Data schema:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Callable
@@ -30,8 +31,12 @@ def build_tool_node_factory(data: dict) -> Callable:
         if not isinstance(last, AIMessage) or not getattr(last, "tool_calls", None):
             return {}
 
-        tool_messages = []
-        for tc in last.tool_calls:
+        # Run every tool_call concurrently. Each per-call try/except below
+        # converts exceptions into an error-shaped ToolMessage so a single
+        # failure can't abort the gather. Order is preserved because
+        # asyncio.gather returns results in the same order as inputs, which
+        # keeps tool_call_id pairings stable for the LLM's next turn.
+        async def _run_one(tc):
             try:
                 if tool_caller is not None:
                     result = await tool_caller(
@@ -46,14 +51,17 @@ def build_tool_node_factory(data: dict) -> Callable:
                         args=tc.get("args") or {},
                         state=state,
                     )
-                content = _to_str(result)
+                return _to_str(result)
             except Exception as e:  # noqa: BLE001
-                content = json.dumps({"error": str(e)})
-            tool_messages.append(
-                ToolMessage(content=content, tool_call_id=tc["id"]),
-            )
+                return json.dumps({"error": str(e)})
 
-        logger.info("[subagent_tool_node.v1] ran=%d", len(tool_messages))
+        contents = await asyncio.gather(*(_run_one(tc) for tc in last.tool_calls))
+        tool_messages = [
+            ToolMessage(content=content, tool_call_id=tc["id"])
+            for content, tc in zip(contents, last.tool_calls)
+        ]
+
+        logger.info("[subagent_tool_node.v1] ran=%d parallel=true", len(tool_messages))
         return {"messages": tool_messages}
 
     return handler
