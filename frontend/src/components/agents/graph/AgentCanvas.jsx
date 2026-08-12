@@ -3,7 +3,7 @@ import ReactFlow, { Background, Controls, MarkerType, addEdge, reconnectEdge, us
 import 'reactflow/dist/style.css'
 
 import {
-  ParseNode, ConditionNode, ToolCallNode, InterruptNode,
+  ParseNode, ConditionNode, ToolCallNode, ParallelToolsNode, InterruptNode,
   LlmNode, ToolNode, ResponseNode,
 } from './nodes/SubAgentNode'
 import AddNodeMenu from './AddNodeMenu'
@@ -12,6 +12,7 @@ const nodeTypes = {
   parse_node: ParseNode,
   condition_node: ConditionNode,
   tool_call_node: ToolCallNode,
+  parallel_tools_node: ParallelToolsNode,
   interrupt_node: InterruptNode,
   llm_node: LlmNode,
   tool_node: ToolNode,
@@ -38,6 +39,12 @@ const DEFAULT_NODE_DATA = {
     output_var: 'result',
     post_write: {},
     on_error: 'abort',
+  },
+  parallel_tools_node: {
+    label: 'Parallel tools',
+    tools: [],
+    on_error: 'collect',
+    timeout_seconds: null,
   },
   interrupt_node: {
     label: 'Ask user',

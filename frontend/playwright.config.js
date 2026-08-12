@@ -9,8 +9,9 @@
  * Run:
  *   npm run test:e2e
  *
- * Assumes the backend is running at http://localhost:8000 and the Vite
- * dev server at http://localhost:6001. Start both before running.
+ * Assumes the backend is running at http://localhost:6000 and the Vite
+ * dev server at http://localhost:6001 (which proxies /api). Start both
+ * before running.
  */
 import { defineConfig } from '@playwright/test'
 

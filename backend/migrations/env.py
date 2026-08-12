@@ -18,7 +18,11 @@ config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers defaults to True, which silently kills every
+    # logger instantiated before run_migrations() — in practice all modules
+    # imported at app startup (app.agent.nodes lost [node_entry]/[turn_summary]
+    # while lazily-imported modules kept logging). Keep them alive.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = SQLModel.metadata
 

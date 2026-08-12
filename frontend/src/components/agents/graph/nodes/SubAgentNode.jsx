@@ -12,6 +12,7 @@ const STYLE = {
   parse_node:     { bg: 'bg-sky-50',     border: 'border-sky-300',     text: 'text-sky-800',     icon: '📥', title: 'Parse' },
   condition_node: { bg: 'bg-amber-50',   border: 'border-amber-300',   text: 'text-amber-800',   icon: '🔀', title: 'Condition' },
   tool_call_node: { bg: 'bg-violet-50',  border: 'border-violet-300',  text: 'text-violet-800',  icon: '🔧', title: 'Tool Call' },
+  parallel_tools_node: { bg: 'bg-violet-50', border: 'border-violet-400', text: 'text-violet-900', icon: '🔧🔧', title: 'Parallel Tools' },
   interrupt_node: { bg: 'bg-rose-50',    border: 'border-rose-300',    text: 'text-rose-800',    icon: '⏸',  title: 'Interrupt' },
   llm_node:       { bg: 'bg-indigo-50',  border: 'border-indigo-300',  text: 'text-indigo-800',  icon: '🤖', title: 'LLM' },
   tool_node:      { bg: 'bg-slate-50',   border: 'border-slate-300',   text: 'text-slate-800',   icon: '⚙️', title: 'Tool Run' },
@@ -29,6 +30,12 @@ function summary(type, data) {
       return 'Dispatcher (see edges)'
     case 'tool_call_node':
       return data.tool ? `${data.tool} → ${data.output_var || '?'}` : 'no tool'
+    case 'parallel_tools_node': {
+      const entries = Array.isArray(data.tools) ? data.tools : []
+      if (!entries.length) return 'no entries'
+      const names = entries.map((e) => e.tool).filter(Boolean)
+      return `${entries.length} in parallel · ${names.slice(0, 2).join(', ')}${names.length > 2 ? ', …' : ''}`
+    }
     case 'interrupt_node':
       return data.targets_slot ? `→ ${data.targets_slot}` : 'general prompt'
     case 'llm_node':
@@ -110,6 +117,7 @@ export default function SubAgentNode({ id, type, data, selected }) {
 export const ParseNode     = (props) => <SubAgentNode {...props} type="parse_node" />
 export const ConditionNode = (props) => <SubAgentNode {...props} type="condition_node" />
 export const ToolCallNode  = (props) => <SubAgentNode {...props} type="tool_call_node" />
+export const ParallelToolsNode = (props) => <SubAgentNode {...props} type="parallel_tools_node" />
 export const InterruptNode = (props) => <SubAgentNode {...props} type="interrupt_node" />
 export const LlmNode       = (props) => <SubAgentNode {...props} type="llm_node" />
 export const ToolNode      = (props) => <SubAgentNode {...props} type="tool_node" />

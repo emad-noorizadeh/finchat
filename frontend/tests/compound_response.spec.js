@@ -17,36 +17,58 @@
  *     terminal-by-design with no prose above them.
  *
  * Running:
- *   1. Start backend: `cd backend && uvicorn app.main:app --reload`
- *   2. Start frontend: `cd frontend && npm run dev`
+ *   1. Start backend: `cd backend && python run.py`         (port 6000)
+ *   2. Start frontend: `cd frontend && npm run dev`         (port 6001)
  *   3. In another terminal: `cd frontend && npm run test:e2e`
  *
- * A "why did I get a fee?" query triggers the two-phase compound path
- * when gpt-5 is the Planner model. If the Planner routes differently
- * (e.g., fast-path), this test will fail the assertion — which is
- * correct signal that the prompt or model changed.
+ * A "why did I get a fee?" query triggers the two-phase compound path.
+ * If the Planner routes differently (e.g., fast-path), this test will
+ * fail the assertion — which is correct signal that the prompt or model
+ * changed.
  */
 import { test, expect } from '@playwright/test'
 
-const LOGIN_USERNAME = process.env.TEST_USER || 'aryash'
+// Display name on the profile card, not a username — login is a
+// profile-card picker (GET /profiles → click card → "Continue as …").
+const PROFILE_NAME = process.env.TEST_PROFILE || 'Arya'
 
 async function loginAndOpenChat(page) {
-  await page.goto('/login')
-  await page.fill('input[type="text"]', LOGIN_USERNAME)
-  await page.click('button:has-text("Sign in")')
-  await expect(page).toHaveURL(/\/chat/)
+  await page.goto('/')
+  // Persisted auth (zustand/persist in localStorage) redirects straight to
+  // /chat; a fresh Playwright context lands on the profile picker instead.
+  const alreadyIn = await page
+    .waitForURL(/\/chat/, { timeout: 3_000 })
+    .then(() => true)
+    .catch(() => false)
+  if (!alreadyIn) {
+    await page.getByText(PROFILE_NAME, { exact: true }).first().click()
+    await page.getByRole('button', { name: `Continue as ${PROFILE_NAME}` }).click()
+    await expect(page).toHaveURL(/\/chat/, { timeout: 10_000 })
+  }
 }
 
 async function sendMessageAndWaitForReply(page, message) {
-  await page.fill('textarea', message)
-  await page.click('button[type="submit"]')
-  // Wait for the assistant reply to stop streaming. A widget card appearing
-  // OR the thinking indicator disappearing both count.
+  const before = await page.locator('[data-role="assistant"]').count()
+  const input = page.getByPlaceholder('Type a message...')
+  await input.fill(message)
+  // The send button carries no type/name attributes — Enter submits
+  // (Shift+Enter is newline).
+  await input.press('Enter')
+
+  // A new assistant message appearing marks the reply; then wait for the
+  // stream to settle (no bouncing-dots placeholder, no tool spinners —
+  // completed tool chips self-remove after ~1.5 s).
+  await expect
+    .poll(async () => page.locator('[data-role="assistant"]').count(), {
+      timeout: 60_000,
+    })
+    .toBeGreaterThan(before)
   await page.waitForFunction(
-    () => !document.querySelector('[data-testid="thinking-indicator"]'),
+    () => !document.querySelector('.animate-bounce'),
     null,
     { timeout: 60_000 },
   )
+  await page.waitForTimeout(2_000)
 }
 
 test.describe('compound response — prose above widget', () => {
