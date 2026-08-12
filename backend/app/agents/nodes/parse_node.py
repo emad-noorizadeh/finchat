@@ -23,6 +23,17 @@ Data schema:
     system_prompt: str
     output_schema: {field_name: {type: ..., nullable: true}, ...}
     writes: {field_name: variable_name}   # optional; defaults to identity (#11)
+  # both modes:
+    always_run: bool                      # optional; disables the seeded-pass
+                                          # skip/narrow optimization below
+
+Planner-parameter interplay: when the entry tool seeded variables from
+Planner-filled parameters (variables._planner_seeded is set — exactly the
+first pass of a Planner entry, never an interrupt-resume pass), this node
+skips its work for already-filled slots: a full skip (no LLM call) when
+every write target is filled, or a narrowed output_schema covering only
+the missing fields. Resume passes always parse in full so user corrections
+("no, make it $30") keep overwriting filled slots.
 """
 
 from __future__ import annotations
@@ -45,9 +56,11 @@ def build_parse_node_factory(data: dict) -> Callable:
     mode = data.get("mode", "regex")
     source = data.get("source", "last_user_message")
 
+    always_run = bool(data.get("always_run", False))
+
     if mode == "regex":
         extractors = tuple(data.get("extractors") or ())
-        return _build_regex_handler(source, extractors)
+        return _build_regex_handler(source, extractors, always_run)
 
     if mode == "llm":
         raw_prompt = data.get("system_prompt", "")
@@ -60,7 +73,9 @@ def build_parse_node_factory(data: dict) -> Callable:
         # in raw_prompt when the author placed the placeholder.
         from app.agents.nodes import compose_system_prompt
         system_prompt = compose_system_prompt(raw_prompt, data)
-        return _build_llm_handler(source, system_prompt, output_schema, writes, llm_variant)
+        return _build_llm_handler(
+            source, system_prompt, output_schema, writes, llm_variant, always_run
+        )
 
     raise ValueError(f"parse_node.mode must be 'regex' or 'llm', got {mode!r}")
 
@@ -73,11 +88,50 @@ def _latest_user_utterance(state: dict) -> str:
     return ""
 
 
-def _build_regex_handler(source: str, extractors: tuple[dict, ...]) -> Callable:
+def _consume_seeded_flag(variables: dict) -> bool:
+    """Pop the Planner-entry marker (set by the entry tool's seeding, see
+    app/tools/sub_agent_params.py). Returns whether this pass is the seeded
+    entry pass. The flag is single-use: cleared here so interrupt-resume
+    passes always run the full parse."""
+    from app.tools.sub_agent_params import SEEDED_FLAG_VAR
+
+    seeded = bool(variables.pop(SEEDED_FLAG_VAR, False))
+    return seeded
+
+
+def _skip_update(state: dict, variables: dict) -> dict:
+    """State update for a fully-skipped parse. A filled last_prompted_slot
+    counts as PROGRESS (Planner args satisfied the pending slot) — without
+    this, _apply_retry_tracking would increment the retry counter toward
+    retry_exhausted_for_slot on a pass that actually advanced the flow."""
+    from app.tools.sub_agent_params import is_filled
+
+    written: set[str] = set()
+    last_slot = state.get("last_prompted_slot")
+    if last_slot and is_filled(variables.get(last_slot)):
+        written.add(last_slot)
+    return _apply_retry_tracking(state, variables, written)
+
+
+def _build_regex_handler(
+    source: str, extractors: tuple[dict, ...], always_run: bool = False
+) -> Callable:
     async def handler(state: dict) -> dict:
+        from app.tools.sub_agent_params import is_filled
+
         utterance = _latest_user_utterance(state)
         variables = dict(state.get("variables") or {})
         written: set[str] = set()
+
+        seeded_pass = _consume_seeded_flag(variables)
+        if seeded_pass and not always_run:
+            slots = [e.get("slot") for e in extractors if e.get("slot")]
+            if slots and all(is_filled(variables.get(s)) for s in slots):
+                logger.info(
+                    "[parse_node_skipped.v1] agent=%s mode=regex",
+                    (state.get("main_context") or {}).get("agent_name", ""),
+                )
+                return _skip_update(state, variables)
 
         for ext in extractors:
             slot = ext.get("slot")
@@ -104,16 +158,46 @@ def _build_llm_handler(
     output_schema: dict,
     writes: dict,
     llm_variant: str,
+    always_run: bool = False,
 ) -> Callable:
     async def handler(state: dict) -> dict:
+        from app.tools.sub_agent_params import is_filled
         from app.utils.templates import resolve_templates
 
         utterance = _latest_user_utterance(state)
         variables = dict(state.get("variables") or {})
         written: set[str] = set()
 
+        seeded_pass = _consume_seeded_flag(variables)
+
         if not utterance:
             return _apply_retry_tracking(state, variables, written)
+
+        # Seeded Planner-entry pass: parse only what the seeding left
+        # unfilled. Never applies on resume passes (flag absent) so user
+        # corrections keep overwriting filled slots.
+        effective_schema = output_schema
+        effective_writes = writes
+        if seeded_pass and not always_run:
+            missing = [
+                f for f, var in writes.items() if not is_filled(variables.get(var))
+            ]
+            if not missing:
+                logger.info(
+                    "[parse_node_skipped.v1] agent=%s mode=llm",
+                    (state.get("main_context") or {}).get("agent_name", ""),
+                )
+                return _skip_update(state, variables)
+            if len(missing) < len(writes):
+                effective_schema = {
+                    f: output_schema[f] for f in missing if f in output_schema
+                }
+                effective_writes = {f: writes[f] for f in missing}
+                logger.info(
+                    "[parse_node_narrowed.v1] agent=%s fields=%s",
+                    (state.get("main_context") or {}).get("agent_name", ""),
+                    ",".join(sorted(missing)),
+                )
 
         # Runtime substitution: {{variables.X}}, {{user_id}}, {{channel}}, etc.
         rendered_prompt = str(resolve_templates(system_prompt, state))
@@ -121,11 +205,11 @@ def _build_llm_handler(
         parsed = await llm_parse(
             utterance,
             system_prompt=rendered_prompt,
-            output_schema=output_schema,
+            output_schema=effective_schema,
             channel=state.get("channel", "chat"),
             llm_variant=llm_variant,
         )
-        for field, variable in writes.items():
+        for field, variable in effective_writes.items():
             value = parsed.get(field)
             if value is not None:
                 variables[variable] = value

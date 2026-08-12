@@ -74,6 +74,17 @@ class SubAgentTemplate(SQLModel, table=True):
         sa_column=Column(JSON, default=[]),
     )
 
+    # Planner-fillable parameters — agent-level like knowledge_collections
+    # (stored per-row, synced across channel variants). Shape:
+    #   {"properties": {name: {type, enum?, description?}},
+    #    "required": [...], "writes": {name: variable}}
+    # Merged into the entry tool's OpenAI schema so the orchestrator LLM can
+    # pre-fill slots; values seed the inner graph's `variables`.
+    parameters: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, default={}),
+    )
+
     # Auditing.
     created_by: str = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

@@ -189,6 +189,7 @@ def export_template(template_name: str):
         "entry_node": row.entry_node,
         "nodes": gd.get("nodes") or [],
         "edges": gd.get("edges") or [],
+        **({"parameters": dict(row.parameters)} if row.parameters else {}),
     }
     headers = {
         "Content-Disposition": f'attachment; filename="{row.agent_name}.{row.channel}.json"'
@@ -232,6 +233,7 @@ def get_agent_variant(agent_name: str, channel: str):
         "status": row.status,
         "context": row.context or "",
         "knowledge_collections": list(row.knowledge_collections or []),
+        "parameters": dict(row.parameters or {}),
     }
 
 
@@ -256,6 +258,7 @@ class AgentUpsertRequest(BaseModel):
     template_schema_version: int = 1
     context: str = ""
     knowledge_collections: list[str] = []
+    parameters: dict = {}
 
 
 def _actor(request: Request) -> str:
@@ -286,6 +289,8 @@ def _build_raw(req: AgentUpsertRequest) -> dict:
         "edges": graph.get("edges") or [],
         "context": req.context or "",
         "knowledge_collections": list(req.knowledge_collections or []),
+        # Omitted when empty so pre-existing templates keep a stable hash.
+        **({"parameters": dict(req.parameters)} if req.parameters else {}),
     }
 
 
@@ -299,6 +304,19 @@ def _refresh_registry() -> None:
         refresh_dynamic_sub_agent_tools()
     except Exception as e:  # noqa: BLE001
         logger.warning("[dynamic_sub_agent_refresh_failed] err=%s", e)
+
+    # Invalidate the compiled-graph caches so template edits take effect on
+    # the next invocation without a process restart. All three entry-tool
+    # modules memoize (template, compiled_graph) per (agent_name, channel);
+    # before this, an agent that had already run kept serving its stale
+    # graph for the life of the process.
+    try:
+        from app.tools import dynamic_sub_agent_tool, refund_tool, transfer_tool
+        dynamic_sub_agent_tool._compiled_for.cache_clear()
+        transfer_tool._compiled_for.cache_clear()
+        refund_tool._compiled_for.cache_clear()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[compiled_template_cache_clear_failed] err=%s", e)
 
     # `_AGENT_TEMPLATE` is filled by `init_agents()` at startup. New
     # templates added after startup (via API or re-seed) need it re-run

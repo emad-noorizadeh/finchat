@@ -42,6 +42,11 @@ from app.agents.runtime import (
 from app.agents.template_compiler import compile_template
 from app.tools import _REGISTRY, register_tool
 from app.tools.base import BaseTool, ToolErrorCategory, ToolResult
+from app.tools.sub_agent_params import (
+    apply_planner_args,
+    filter_valid_args,
+    merge_input_schema,
+)
 from app.widgets.summarizers import widget_to_llm
 
 logger = logging.getLogger(__name__)
@@ -75,9 +80,12 @@ class DynamicSubAgentTool(BaseTool):
         search_hint: str,
         supported_channels: list[str],
         always_load: bool = False,
+        parameters: dict | None = None,
     ):
         self.name = agent_name
         self.display_name = display_name
+        # Planner-fillable parameters (agent-level, template-declared).
+        self.parameters = parameters or {}
         self._description = description or (
             f"Sub-agent '{display_name or agent_name}'. Call to invoke its flow."
         )
@@ -93,16 +101,9 @@ class DynamicSubAgentTool(BaseTool):
         return self._description
 
     async def input_schema(self):
-        return {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "description": "The user's request in natural language.",
-                },
-            },
-            "required": ["message"],
-        }
+        return merge_input_schema(
+            "The user's request in natural language.", self.parameters
+        )
 
     def activity_description(self, input):
         return f"Running {self.display_name or self.name}..."
@@ -114,6 +115,8 @@ class DynamicSubAgentTool(BaseTool):
         user_id = context.get("user_id", "")
         session_id = context.get("session_id", "")
         message = (input or {}).get("message", "") or ""
+        valid_args = filter_valid_args(input or {}, self.parameters, agent_name=self.name)
+        tool_call_id = context.get("tool_call_id", "") or ""
 
         template, graph = _compiled_for(self.name, channel)
         if graph is None:
@@ -150,6 +153,8 @@ class DynamicSubAgentTool(BaseTool):
                 session_id=session_id,
                 channel=channel,
                 message=message,
+                valid_args=valid_args,
+                tool_call_id=tool_call_id,
             )
             inner_state = await _run_inner_once(graph, inner_state, inner_config)
 
@@ -179,22 +184,42 @@ class DynamicSubAgentTool(BaseTool):
             unregister_thread_agent(thread_id)
 
     def _initial_inner_state(
-        self, *, thread_id: str, user_id: str, session_id: str, channel: str, message: str
+        self,
+        *,
+        thread_id: str,
+        user_id: str,
+        session_id: str,
+        channel: str,
+        message: str,
+        valid_args: dict | None = None,
+        tool_call_id: str = "",
     ) -> dict:
         prior = load_inner_state(thread_id)
         if prior and not prior.get("_terminal"):
             msgs = list(prior.get("messages") or [])
             msgs.append(HumanMessage(content=message))
-            return {**prior, "messages": msgs, "_terminal": False}
-        return {
-            "messages": [HumanMessage(content=message)],
-            "user_id": user_id,
-            "session_id": session_id,
-            "channel": channel,
-            "main_context": {"agent_name": self.name},
-            "variables": {},
-            "_terminal": False,
-        }
+            state = {**prior, "messages": msgs, "_terminal": False}
+            mc = dict(state.get("main_context") or {})
+            mc["planner_args"] = dict(valid_args or {})
+            state["main_context"] = mc
+        else:
+            state = {
+                "messages": [HumanMessage(content=message)],
+                "user_id": user_id,
+                "session_id": session_id,
+                "channel": channel,
+                "main_context": {
+                    "agent_name": self.name,
+                    "planner_args": dict(valid_args or {}),
+                },
+                "variables": {},
+                "_terminal": False,
+            }
+        # Seed-once: replays of the same tool_call never re-apply args;
+        # a new Planner call over an abandoned flow fills empty slots only.
+        return apply_planner_args(
+            state, valid_args or {}, self.parameters, tool_call_id=tool_call_id
+        )
 
 
 # --- helpers (factored out of the class for symmetry with other sub-agent tools) ---
@@ -299,6 +324,7 @@ def refresh_dynamic_sub_agent_tools() -> None:
             "search_hint":       row.search_hint,
             "supported_channels": set(),
             "always_load":       False,
+            "parameters":        {},
         })
         acc["supported_channels"].update(row.supported_channels or [row.channel])
         # Keep the longest non-empty description / search_hint across
@@ -313,6 +339,9 @@ def refresh_dynamic_sub_agent_tools() -> None:
         # the whole agent is always-load. Matches the user mental model
         # ("this agent is always loaded") even though storage is per-channel.
         acc["always_load"] = acc["always_load"] or bool(row.always_load)
+        # Agent-level and store-synced across variants — first non-empty wins.
+        if row.parameters and not acc["parameters"]:
+            acc["parameters"] = dict(row.parameters)
 
     # Remove stale dynamic registrations (agents that used to exist but
     # were deleted / disabled since last refresh).
@@ -333,6 +362,7 @@ def refresh_dynamic_sub_agent_tools() -> None:
             search_hint=meta["search_hint"],
             supported_channels=sorted(meta["supported_channels"]),
             always_load=meta["always_load"],
+            parameters=meta["parameters"],
         )
         register_tool(tool)
         _DYNAMIC_REGISTERED.add(agent_name)

@@ -265,11 +265,17 @@ async def enrich(state: AgentState) -> dict:
         (time.perf_counter() - _t_sch) * 1000, len(always_load),
     )
 
-    # Preserve deferred tools that tool_search has already discovered.
+    # Preserve deferred tools that tool_search has already discovered —
+    # re-serialized from the live registry each turn so metadata edits
+    # (description, sub-agent parameters) reach ongoing sessions without a
+    # restart. Fall back to the stored schema if the tool was unregistered.
     prev_names = state.get("available_tools", []) or []
     prev_schemas = state.get("tool_schemas", []) or []
     for n, s in zip(prev_names, prev_schemas):
         if n not in always_names:
+            live = get_tool(n)
+            if live is not None:
+                s = await live.to_openai_schema()
             fresh_names.append(n)
             fresh_schemas.append(s)
 
@@ -452,7 +458,12 @@ async def tool_execute(state: AgentState) -> dict:
             llm_text = json.dumps({"error": f"Tool '{tc['name']}' not found"})
         else:
             try:
-                result = await tool.execute(tc["args"], context)
+                # Per-call context: tool_call_id lets sub-agent tools apply
+                # their Planner-arg seeding exactly once per call — LangGraph
+                # replays re-execute the tool on every interrupt resume.
+                result = await tool.execute(
+                    tc["args"], {**context, "tool_call_id": tc.get("id") or ""}
+                )
                 if isinstance(result, ToolResult):
                     # Voice channel suppresses widgets entirely; chat keeps widget behavior
                     if channel == "chat" and result.widget:

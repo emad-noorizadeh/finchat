@@ -47,6 +47,9 @@ def _row_to_raw(row: SubAgentTemplate) -> dict:
         "edges": gd.get("edges") or [],
         "context": row.context or "",
         "knowledge_collections": list(row.knowledge_collections or []),
+        # Omitted when empty so pre-existing templates keep their hash
+        # (template_hash covers the whole raw dict).
+        **({"parameters": dict(row.parameters)} if row.parameters else {}),
     }
 
 
@@ -111,6 +114,7 @@ def upsert_template(
     always_load: bool = False,
     context: str = "",
     knowledge_collections: list[str] | None = None,
+    parameters: dict | None = None,
 ) -> SubAgentTemplate:
     """Validate + persist a template. Returns the saved row.
 
@@ -123,6 +127,11 @@ def upsert_template(
     whether the tool is bound on every turn vs. surfaced via tool_search.
     """
     loaded = load_template(raw)
+    if parameters is not None:
+        # Kwarg path bypasses load_template's raw-dict validation — re-run
+        # the same checks against this graph before persisting.
+        from app.agents.template_loader import validate_parameters
+        parameters = validate_parameters(parameters, list(loaded.nodes))
 
     with Session(engine) as db:
         existing = db.exec(select(SubAgentTemplate).where(SubAgentTemplate.name == loaded.name)).first()
@@ -157,7 +166,14 @@ def upsert_template(
                 if knowledge_collections is not None
                 else loaded.knowledge_collections
             ),
+            "parameters": dict(
+                parameters if parameters is not None else loaded.parameters
+            ),
         }
+
+        _validate_parameters_against_siblings(
+            db, loaded.agent_name, loaded.name, values["parameters"],
+        )
 
         if existing:
             for k, v in values.items():
@@ -171,14 +187,17 @@ def upsert_template(
             existing.updated_at = datetime.now(timezone.utc)
             db.add(existing)
             db.commit()
-            db.refresh(existing)
-            # Propagate knowledge_collections to all channel variants of
-            # the same agent. Per the design, knowledge_collections is an
-            # agent-level field but stored per-row for schema simplicity;
-            # the API treats "agent" as the editing unit.
-            _sync_knowledge_collections_to_siblings(
-                db, loaded.agent_name, loaded.name, values["knowledge_collections"],
+            # Propagate agent-level fields to all channel variants of the
+            # same agent BEFORE the final refresh — the sync's commit would
+            # otherwise expire `existing` after we refreshed it, and callers
+            # read attributes off the returned row post-session.
+            _sync_agent_level_fields_to_siblings(
+                db, loaded.agent_name, loaded.name, {
+                    "knowledge_collections": values["knowledge_collections"],
+                    "parameters": values["parameters"],
+                },
             )
+            db.refresh(existing)
             logger.info(
                 "[template_updated] name=%s by=%s source=%s",
                 loaded.name, created_by, source,
@@ -193,20 +212,24 @@ def upsert_template(
         )
         db.add(row)
         db.commit()
-        db.refresh(row)
-        _sync_knowledge_collections_to_siblings(
-            db, loaded.agent_name, loaded.name, values["knowledge_collections"],
+        _sync_agent_level_fields_to_siblings(
+            db, loaded.agent_name, loaded.name, {
+                "knowledge_collections": values["knowledge_collections"],
+                "parameters": values["parameters"],
+            },
         )
+        db.refresh(row)
         logger.info("[template_created] name=%s by=%s source=%s", loaded.name, created_by, source)
         return row
 
 
-def _sync_knowledge_collections_to_siblings(
-    db: Session, agent_name: str, exclude_name: str, value: list[str],
+def _sync_agent_level_fields_to_siblings(
+    db: Session, agent_name: str, exclude_name: str, fields: dict,
 ) -> None:
-    """Write the same knowledge_collections to every other row that shares
-    this agent_name. knowledge_collections is conceptually an agent-level
-    field — chat and voice variants always carry the same allow-list."""
+    """Write the same agent-level field values (knowledge_collections,
+    parameters) to every other row that shares this agent_name. These are
+    conceptually agent-level fields stored per-row for schema simplicity —
+    chat and voice variants always carry identical values."""
     siblings = db.exec(
         select(SubAgentTemplate).where(
             SubAgentTemplate.agent_name == agent_name,
@@ -218,13 +241,45 @@ def _sync_knowledge_collections_to_siblings(
     from datetime import datetime, timezone
     changed = False
     for s in siblings:
-        if list(s.knowledge_collections or []) != list(value):
-            s.knowledge_collections = list(value)
-            s.updated_at = datetime.now(timezone.utc)
-            db.add(s)
-            changed = True
+        for field, value in fields.items():
+            current = getattr(s, field, None) or type(value)()
+            if current != value:
+                setattr(s, field, value)
+                s.updated_at = datetime.now(timezone.utc)
+                db.add(s)
+                changed = True
     if changed:
         db.commit()
+
+
+def _validate_parameters_against_siblings(
+    db: Session, agent_name: str, exclude_name: str, parameters: dict,
+) -> None:
+    """Cross-variant slot-safety: parameters are agent-level, so their
+    writes must avoid protected slots (interrupt targets_slot, node
+    output_vars) in EVERY channel variant's graph — not just the one being
+    saved. The Planner must never be able to pre-fill a human-confirmation
+    gate (e.g. voice `confirmed`) via a parameter declared on the chat
+    variant."""
+    if not parameters:
+        return
+    from app.agents.template_loader import effective_parameter_writes, protected_slots
+
+    writes = set(effective_parameter_writes(parameters).values())
+    siblings = db.exec(
+        select(SubAgentTemplate).where(
+            SubAgentTemplate.agent_name == agent_name,
+            SubAgentTemplate.name != exclude_name,
+        )
+    ).all()
+    for s in siblings:
+        bad = sorted(writes & protected_slots((s.graph_definition or {}).get("nodes")))
+        if bad:
+            raise TemplateValidationError(
+                f"parameters may not write to protected slots {bad} of channel "
+                f"variant {s.name!r} (interrupt target slots / node output_vars "
+                f"must stay unreachable to the Planner LLM)"
+            )
 
 
 def set_status(name: str, status: str) -> SubAgentTemplate | None:
@@ -334,6 +389,9 @@ def import_template_file(template_dir: Path, filename: str) -> SubAgentTemplate:
     values = _row_values_from_raw(raw, loaded)
 
     with Session(engine) as db:
+        _validate_parameters_against_siblings(
+            db, loaded.agent_name, loaded.name, values["parameters"],
+        )
         existing = db.exec(
             select(SubAgentTemplate).where(SubAgentTemplate.name == loaded.name)
         ).first()
@@ -344,6 +402,12 @@ def import_template_file(template_dir: Path, filename: str) -> SubAgentTemplate:
             existing.updated_at = datetime.now(timezone.utc)
             db.add(existing)
             db.commit()
+            _sync_agent_level_fields_to_siblings(
+                db, loaded.agent_name, loaded.name, {
+                    "knowledge_collections": values["knowledge_collections"],
+                    "parameters": values["parameters"],
+                },
+            )
             db.refresh(existing)
             logger.info(
                 "[template_imported] name=%s file=%s mode=overwrite "
@@ -361,6 +425,12 @@ def import_template_file(template_dir: Path, filename: str) -> SubAgentTemplate:
         )
         db.add(row)
         db.commit()
+        _sync_agent_level_fields_to_siblings(
+            db, loaded.agent_name, loaded.name, {
+                "knowledge_collections": values["knowledge_collections"],
+                "parameters": values["parameters"],
+            },
+        )
         db.refresh(row)
         logger.info("[template_imported] name=%s file=%s mode=insert", loaded.name, filename)
         return row
@@ -390,4 +460,5 @@ def _row_values_from_raw(raw: dict, loaded) -> dict:
         },
         "context": loaded.context or raw.get("context") or "",
         "knowledge_collections": list(loaded.knowledge_collections),
+        "parameters": dict(loaded.parameters or {}),
     }

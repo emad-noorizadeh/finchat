@@ -60,7 +60,8 @@ per-thread state registry.
 
 ## Node grammar (v4)
 
-Seven node types, registered in `app/agents/nodes/`:
+Eight node types, registered in `app/agents/nodes/` (see also
+`parallel_tools_node` for concurrent AgentTool fan-out):
 
 | Type | Purpose |
 |---|---|
@@ -107,6 +108,41 @@ compiled by `app/agents/template_compiler.py`.
   ]
 }
 ```
+
+## Planner-fillable parameters
+
+A template may declare `"parameters"` — an agent-level field (synced across
+channel variants like `knowledge_collections`) with shape
+`{"properties": {name: {type, enum?, description?}}, "required": [...],
+"writes": {name: variable}}` (writes defaults to identity):
+
+- **Schema merge.** The entry tool (`DynamicSubAgentTool`, or the
+  hand-coded regulated tools via `template_parameters()`) merges the
+  properties into its OpenAI schema next to `message`, so the orchestrator
+  Planner fills them in the same call that invokes the agent.
+- **Seeding.** Validated values seed `state.variables` before the graph
+  runs; the raw set is also exposed at `main_context.planner_args`.
+  Validation is lenient — wrong type / enum violation / empty value →
+  dropped with `[sub_agent_arg_dropped.v1]`, never an error.
+- **Parse skip/narrow.** On the seeded Planner-entry pass only, the entry
+  `parse_node` skips its LLM call when all its write targets are filled
+  (`[parse_node_skipped.v1]`) or narrows `output_schema` to the missing
+  fields (`[parse_node_narrowed.v1]`). Interrupt-resume passes always parse
+  in full, so mid-flow corrections keep overwriting slots. Per-node opt-out:
+  `always_run: true`.
+- **Seed-once.** The entry tools apply seeding once per Planner tool_call
+  (`variables._planner_args_call_id`); LangGraph interrupt replays re-run
+  `execute()` from the top and must never re-apply stale args. A new
+  Planner call over an abandoned (non-terminal) flow seeds fill-empty-only.
+- **Slot safety.** `writes` may not target `_`-prefixed variables, any node
+  `output_var`, or any interrupt `targets_slot` — validated against every
+  channel variant's graph at upsert/import time, so confirmation gates stay
+  structurally unreachable to the Planner. A data-collection interrupt can
+  opt its slot in with `"planner_fillable": true` (a pre-filled slot then
+  skips the interrupt entirely, which is the point).
+
+Shared helpers: `app/tools/sub_agent_params.py`. Loader validation:
+`template_loader.validate_parameters` / `protected_slots`.
 
 ## Per-agent context (knowledge blob)
 

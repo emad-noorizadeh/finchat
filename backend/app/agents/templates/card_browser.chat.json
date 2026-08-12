@@ -13,6 +13,18 @@
   "search_hint": "show me cards list cards browse catalogue all credit card offers what cards available card list",
   "always_load": false,
 
+  "parameters": {
+    "properties": {
+      "intent": {
+        "type": "string",
+        "enum": ["list"],
+        "description": "Set to \"list\" ONLY when the user clearly wants to see/browse the full catalogue of credit-card offers ('show me all cards', 'what cards do you have'). Omit when they want a tailored recommendation or you are unsure — the sub-agent will classify."
+      }
+    },
+    "required": [],
+    "writes": {"intent": "intent"}
+  },
+
   "entry_node": "parse_intent",
 
   "nodes": [

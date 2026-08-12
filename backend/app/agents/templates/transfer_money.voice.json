@@ -9,6 +9,41 @@
   "suspend_resume_allowed": false,
   "locked_for_business_user_edit": true,
   "unsupported_channel_message": "Transfers aren't available on this channel — please use chat or the mobile app.",
+
+  "parameters": {
+    "properties": {
+      "transfer_type": {
+        "type": "string",
+        "enum": ["m2m", "cc", "zelle"],
+        "description": "Kind of transfer, ONLY if clear from the user's wording: m2m = between the user's own accounts (checking/savings/money market); cc = paying a credit card; zelle = sending to a person, or viewing recipients/contacts. Omit when ambiguous."
+      },
+      "amount": {
+        "type": "number",
+        "description": "USD amount the user explicitly stated (strip $, commas, 'dollars'; must be > 0). Omit if not stated."
+      },
+      "from_account_hint": {
+        "type": "string",
+        "description": "User's own words for the SOURCE account (e.g. 'checking', 'savings', a last-4 like '6789'). Omit if not stated."
+      },
+      "to_account_hint": {
+        "type": "string",
+        "description": "User's own words for the DESTINATION account (m2m) or credit-card label (cc). Omit for zelle and when not stated."
+      },
+      "payee_hint": {
+        "type": "string",
+        "description": "NAMED Zelle recipient only (e.g. 'Chris', 'sam@example.com'). Generic placeholders ('my friend', 'someone') are NOT names — omit them. Omit for m2m/cc."
+      }
+    },
+    "required": [],
+    "writes": {
+      "transfer_type": "transfer_type",
+      "amount": "amount",
+      "from_account_hint": "from_account_hint",
+      "to_account_hint": "to_account_hint",
+      "payee_hint": "payee_hint"
+    }
+  },
+
   "entry_node": "parse",
 
   "nodes": [
@@ -94,6 +129,7 @@
       "data": {
         "label": "Ask for amount",
         "targets_slot": "amount",
+        "planner_fillable": true,
         "prompt_template": "How much would you like to transfer?",
         "voice_prompt_template": "How much would you like to transfer?"
       }
@@ -104,6 +140,7 @@
       "data": {
         "label": "Ask for source account",
         "targets_slot": "from_account_hint",
+        "planner_fillable": true,
         "prompt_template": "Which account should the money come from?",
         "voice_prompt_template": "Which account should the money come from?"
       }
@@ -114,6 +151,7 @@
       "data": {
         "label": "Ask for destination account",
         "targets_slot": "to_account_hint",
+        "planner_fillable": true,
         "prompt_template": "Where should the money go?",
         "voice_prompt_template": "Where should the money go?"
       }

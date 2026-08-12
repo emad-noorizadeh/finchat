@@ -30,6 +30,12 @@ from app.agents.state import SubAgentState
 from app.agents.template_compiler import compile_template
 from app.tools import register_tool
 from app.tools.base import BaseTool, ToolErrorCategory, ToolResult
+from app.tools.sub_agent_params import (
+    apply_planner_args,
+    filter_valid_args,
+    merge_input_schema,
+    template_parameters,
+)
 from app.widgets.summarizers import widget_to_llm
 
 logger = logging.getLogger(__name__)
@@ -83,16 +89,10 @@ class RefundAgentTool(BaseTool):
         )
 
     async def input_schema(self):
-        return {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "description": "User's refund request in natural language",
-                },
-            },
-            "required": ["message"],
-        }
+        return merge_input_schema(
+            "User's refund request in natural language",
+            template_parameters(self.name),
+        )
 
     def activity_description(self, input):
         return "Reviewing eligible fees..."
@@ -102,6 +102,9 @@ class RefundAgentTool(BaseTool):
         user_id = context.get("user_id", "")
         session_id = context.get("session_id", "")
         message = (input or {}).get("message", "") or ""
+        parameters = template_parameters(self.name)
+        valid_args = filter_valid_args(input or {}, parameters, agent_name=self.name)
+        tool_call_id = context.get("tool_call_id", "") or ""
 
         template, graph = _compiled_for(self.name, channel)
         if graph is None:
@@ -135,6 +138,9 @@ class RefundAgentTool(BaseTool):
                 session_id=session_id,
                 channel=channel,
                 message=message,
+                valid_args=valid_args,
+                parameters=parameters,
+                tool_call_id=tool_call_id,
             )
 
             inner_state = await _run_inner_once(graph, inner_state, inner_config)
@@ -166,22 +172,41 @@ class RefundAgentTool(BaseTool):
 
 
 def _initial_inner_state(
-    *, thread_id: str, user_id: str, session_id: str, channel: str, message: str
+    *,
+    thread_id: str,
+    user_id: str,
+    session_id: str,
+    channel: str,
+    message: str,
+    valid_args: dict | None = None,
+    parameters: dict | None = None,
+    tool_call_id: str = "",
 ) -> dict:
     prior = load_inner_state(thread_id)
     if prior and not prior.get("_terminal"):
         msgs = list(prior.get("messages") or [])
         msgs.append(HumanMessage(content=message))
-        return {**prior, "messages": msgs, "_terminal": False}
-    return {
-        "messages": [HumanMessage(content=message)],
-        "user_id": user_id,
-        "session_id": session_id,
-        "channel": channel,
-        "main_context": {"agent_name": "refund_fee"},
-        "variables": {},
-        "_terminal": False,
-    }
+        state = {**prior, "messages": msgs, "_terminal": False}
+        mc = dict(state.get("main_context") or {})
+        mc["planner_args"] = dict(valid_args or {})
+        state["main_context"] = mc
+    else:
+        state = {
+            "messages": [HumanMessage(content=message)],
+            "user_id": user_id,
+            "session_id": session_id,
+            "channel": channel,
+            "main_context": {
+                "agent_name": "refund_fee",
+                "planner_args": dict(valid_args or {}),
+            },
+            "variables": {},
+            "_terminal": False,
+        }
+    # Seed-once per tool_call — replays never re-apply Planner args.
+    return apply_planner_args(
+        state, valid_args or {}, parameters or {}, tool_call_id=tool_call_id
+    )
 
 
 async def _run_inner_once(graph, state: dict, config: dict | None = None) -> dict:

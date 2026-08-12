@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm'
 import client from '../../api/client'
 import AgentCanvas from './graph/AgentCanvas'
 import NodePropertiesPanel from './graph/NodePropertiesPanel'
+import ParametersTab from './ParametersTab'
 
 // Inline icons — Unicode box-glyphs render inconsistently across systems,
 // so use SVG so "full screen" is always visible.
@@ -43,12 +44,28 @@ const ChevronRight = ({ className = 'w-3.5 h-3.5' }) => (
 // editor for fine-grained edits. Replaces the legacy per-agent
 // "system prompt" textbox — v4 templates have no agent-level prompt, only
 // per-node prompts.
-function PromptsOverview({ nodes, onOpenNode }) {
+function PromptsOverview({ nodes, parameters, onOpenNode }) {
   const prompted = (nodes || []).filter((n) => {
     if (n.type === 'parse_node') return (n.data?.mode === 'llm') && !!n.data?.system_prompt
     if (n.type === 'llm_node')   return !!n.data?.system_prompt
     return false
   })
+
+  // Parse nodes whose slots are all coverable by agent parameters may be
+  // skipped entirely on Planner entry — badge them so authors reading the
+  // prompts know they might not run.
+  const paramTargets = new Set(
+    Object.keys(parameters?.properties || {}).map(
+      (name) => (parameters?.writes || {})[name] || name
+    )
+  )
+  const maySkip = (n) => {
+    if (n.type !== 'parse_node' || n.data?.always_run) return false
+    const targets = Object.values(n.data?.writes || {}).length
+      ? Object.values(n.data?.writes || {})
+      : Object.keys(n.data?.output_schema || {})
+    return targets.length > 0 && targets.every((t) => paramTargets.has(t))
+  }
 
   if (prompted.length === 0) {
     return (
@@ -84,8 +101,18 @@ function PromptsOverview({ nodes, onOpenNode }) {
                 </button>
                 <div className="text-[10px] text-gray-400 font-mono truncate">{n.id}</div>
               </div>
-              <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                {badge}
+              <span className="shrink-0 flex items-center gap-1">
+                {maySkip(n) && (
+                  <span
+                    title="Agent parameters can fill every slot this parser writes — on Planner entry the LLM call is skipped (interrupt replies still parse in full)."
+                    className="text-[10px] font-medium uppercase tracking-wide bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded"
+                  >
+                    may skip on entry
+                  </span>
+                )}
+                <span className="text-[10px] font-medium uppercase tracking-wide bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                  {badge}
+                </span>
               </span>
             </div>
             <div className="px-3 py-2 text-xs text-gray-800 prose prose-sm max-w-none
@@ -159,7 +186,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
   // "full" = that panel occupies the whole workspace (other panel + canvas
   // hidden). "normal" = three-column layout.
   const [panelFullscreen, setPanelFullscreen] = useState(null)  // 'left' | 'right' | null
-  const [leftWidth, setLeftWidth] = useState(384)   // 24rem — fits 5 tabs (general/prompt/context/knowledge/settings) without wrapping
+  const [leftWidth, setLeftWidth] = useState(440)   // fits 6 tabs (general/prompt/context/knowledge/parameters/settings) without wrapping
   const [rightWidth, setRightWidth] = useState(320)  // 20rem default
   const dragging = useRef(null) // 'left' | 'right' | null
   const isEdit = !!(agentName && channel)
@@ -205,6 +232,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
     always_load: false,
     context: '',
     knowledge_collections: [],
+    parameters: {},
     system_prompt: '',
     tool_names: [],
     constraints: { require_confirmation: false },
@@ -237,6 +265,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
           always_load: d.always_load || false,
           context: d.context || '',
           knowledge_collections: d.knowledge_collections || [],
+          parameters: d.parameters || {},
           system_prompt: d.system_prompt || '',
           tool_names: d.tools || [],
           constraints: {},
@@ -299,6 +328,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
       always_load: !!form.always_load,
       context: form.context || "",
       knowledge_collections: Array.isArray(form.knowledge_collections) ? form.knowledge_collections : [],
+      parameters: form.parameters && Object.keys(form.parameters).length ? form.parameters : {},
       graph_definition: form.graph_definition,
       supported_channels: form.supported_channels?.length ? form.supported_channels : [form.channel],
       is_regulated: !!form.is_regulated,
@@ -448,12 +478,15 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
           <div className="h-full overflow-y-auto" style={{ width: panelFullscreen === 'left' ? '100%' : leftWidth }}>
           {/* Right-padding reserves the top-right corner for the fullscreen /
               collapse icon overlay so the "settings" tab isn't obscured. */}
-          <div className="flex border-b border-gray-200 pr-20">
-            {['general', 'prompt', 'context', 'knowledge', 'settings'].map((tab) => (
+          {/* Content-sized tabs in a scrollable strip — flex-1 + ellipsis
+              truncated/overlapped labels once the panel narrowed below the
+              natural width of 6 tabs. */}
+          <div className="flex border-b border-gray-200 pr-20 overflow-x-auto">
+            {['general', 'prompt', 'context', 'knowledge', 'parameters', 'settings'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setSettingsTab(tab)}
-                className={`flex-1 py-2.5 text-xs font-medium capitalize cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis ${
+                className={`flex-none px-2.5 py-2.5 text-xs font-medium capitalize cursor-pointer whitespace-nowrap ${
                   settingsTab === tab
                     ? 'text-blue-600 border-b-2 border-blue-600'
                     : 'text-gray-500 hover:text-gray-700'
@@ -521,6 +554,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
             {settingsTab === 'prompt' && (
               <PromptsOverview
                 nodes={form.graph_definition?.nodes || []}
+                parameters={form.parameters || {}}
                 onOpenNode={(n) => setSelectedNodeId(n.id)}
               />
             )}
@@ -538,6 +572,14 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
                 setFilesLoading={setFilesLoading}
                 selected={form.knowledge_collections || []}
                 onSelectedChange={(v) => setField('knowledge_collections', v)}
+              />
+            )}
+
+            {settingsTab === 'parameters' && (
+              <ParametersTab
+                parameters={form.parameters || {}}
+                onChange={(v) => setField('parameters', v)}
+                isLocked={isLocked}
               />
             )}
 
@@ -699,6 +741,7 @@ export default function AgentBuilder({ agentName, channel, onSave, onCancel }) {
               allNodes={form.graph_definition.nodes}
               allEdges={form.graph_definition.edges}
               agentName={form.name}
+              agentParameters={form.parameters || {}}
               supportedChannels={form.supported_channels || [form.channel]}
               onUpdate={handleNodeDataChange}
               onEdgesUpdate={(edges) => setForm((f) => ({

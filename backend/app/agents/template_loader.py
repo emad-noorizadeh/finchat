@@ -49,6 +49,7 @@ class LoadedTemplate:
     entry_node: str
     context: str
     knowledge_collections: tuple[str, ...]
+    parameters: dict
     hash: str
     warnings: tuple[str, ...]
 
@@ -56,6 +57,7 @@ class LoadedTemplate:
 def load_template(raw: dict) -> LoadedTemplate:
     _validate_structure(raw)
     warnings = _validate_semantics(raw)
+    parameters = _validate_parameters(raw)
 
     name = raw.get("name", "")
     agent_name = raw.get("agent_name") or name
@@ -92,9 +94,139 @@ def load_template(raw: dict) -> LoadedTemplate:
         knowledge_collections=tuple(
             str(c) for c in (raw.get("knowledge_collections") or ()) if str(c).strip()
         ),
+        parameters=parameters,
         hash=template_hash(raw),
         warnings=tuple(warnings),
     )
+
+
+_ALLOWED_PARAM_TYPES = ("string", "number", "integer", "boolean")
+
+# Property names that would clobber the entry tool's base schema fields.
+_RESERVED_PARAM_NAMES = frozenset({"message"})
+
+
+def protected_slots(nodes) -> set[str]:
+    """Variable names the Planner must never be able to pre-fill:
+    interrupt targets (human-in-the-loop gates, e.g. `confirmed`) and node
+    output_vars (computed results guarded by `!has(variables.X)` edges).
+    Shared with template_store's cross-variant check.
+
+    Secure default with explicit opt-out: an interrupt_node that merely
+    COLLECTS data (amount, account hints) may set data.planner_fillable=true
+    to allow a parameter to pre-fill its slot — pre-filled means the
+    interrupt is skipped, which is the point of the feature. Confirmation
+    gates must never carry that flag; leaving it off keeps their slot
+    structurally unreachable to the Planner LLM."""
+    protected: set[str] = set()
+    for n in nodes or ():
+        data = n.get("data") or {}
+        slot = data.get("targets_slot")
+        if isinstance(slot, str) and slot.strip() and not data.get("planner_fillable"):
+            protected.add(slot)
+        out = data.get("output_var")
+        if isinstance(out, str) and out.strip():
+            protected.add(out)
+        for entry in data.get("tools") or ():
+            if isinstance(entry, dict):
+                out = entry.get("output_var")
+                if isinstance(out, str) and out.strip():
+                    protected.add(out)
+    return protected
+
+
+def effective_parameter_writes(parameters: dict) -> dict:
+    """param → variable map with the identity default applied (same
+    convention as parse_node.writes)."""
+    props = (parameters or {}).get("properties") or {}
+    writes = (parameters or {}).get("writes") or {}
+    return {p: writes.get(p, p) for p in props}
+
+
+def _validate_parameters(raw: dict) -> dict:
+    return validate_parameters(raw.get("parameters"), raw.get("nodes"))
+
+
+def validate_parameters(params, nodes) -> dict:
+    """Validate an agent-level `parameters` declaration (Planner-filled
+    arguments) against a graph's nodes. Returns the normalized dict, or {}
+    when absent. Public: template_store re-runs this against sibling
+    channel variants' graphs."""
+    if not params:
+        return {}
+    if not isinstance(params, dict):
+        raise TemplateValidationError("parameters must be an object")
+
+    props = params.get("properties")
+    if not isinstance(props, dict) or not props:
+        raise TemplateValidationError("parameters.properties must be a non-empty object")
+
+    for pname, spec in props.items():
+        if not isinstance(pname, str) or not pname.strip():
+            raise TemplateValidationError("parameters property names must be non-empty strings")
+        if pname in _RESERVED_PARAM_NAMES:
+            raise TemplateValidationError(
+                f"parameter {pname!r} is reserved (would clobber the entry tool's base schema)"
+            )
+        if not isinstance(spec, dict):
+            raise TemplateValidationError(f"parameter {pname!r} spec must be an object")
+        ptype = spec.get("type")
+        if ptype not in _ALLOWED_PARAM_TYPES:
+            raise TemplateValidationError(
+                f"parameter {pname!r} type must be one of {list(_ALLOWED_PARAM_TYPES)}, got {ptype!r}"
+            )
+        if not isinstance(spec.get("description", ""), str):
+            raise TemplateValidationError(f"parameter {pname!r} description must be a string")
+        enum = spec.get("enum")
+        if enum is not None:
+            if not isinstance(enum, list) or not enum:
+                raise TemplateValidationError(f"parameter {pname!r} enum must be a non-empty list")
+            expected = {"string": str, "number": (int, float), "integer": int, "boolean": bool}[ptype]
+            for v in enum:
+                if isinstance(v, bool) and ptype in ("number", "integer"):
+                    raise TemplateValidationError(
+                        f"parameter {pname!r} enum value {v!r} does not match type {ptype!r}"
+                    )
+                if not isinstance(v, expected):
+                    raise TemplateValidationError(
+                        f"parameter {pname!r} enum value {v!r} does not match type {ptype!r}"
+                    )
+
+    required = params.get("required", [])
+    if not isinstance(required, list) or any(r not in props for r in required):
+        raise TemplateValidationError("parameters.required must be a subset of property names")
+
+    writes = params.get("writes", {})
+    if not isinstance(writes, dict):
+        raise TemplateValidationError("parameters.writes must be an object")
+    for k, v in writes.items():
+        if k not in props:
+            raise TemplateValidationError(f"parameters.writes key {k!r} is not a declared property")
+        if not isinstance(v, str) or not v.strip():
+            raise TemplateValidationError(f"parameters.writes[{k!r}] must be a non-empty string")
+
+    normalized = {"properties": props, "required": list(required), "writes": dict(writes)}
+
+    # Slot-safety within THIS graph: no write may target a reserved (_-prefixed)
+    # variable, an interrupt's targets_slot, or a node output_var. The
+    # cross-channel-variant version of this check runs in template_store,
+    # where sibling rows are reachable.
+    for pname, var in effective_parameter_writes(normalized).items():
+        if var.startswith("_"):
+            raise TemplateValidationError(
+                f"parameter {pname!r} may not write to reserved variable {var!r}"
+            )
+    bad = sorted(
+        set(effective_parameter_writes(normalized).values())
+        & protected_slots(nodes)
+    )
+    if bad:
+        raise TemplateValidationError(
+            f"parameters may not write to protected slots {bad} — these are "
+            f"interrupt target slots or node output_vars, which must stay "
+            f"structurally unreachable to the Planner LLM"
+        )
+    return normalized
 
 
 def template_hash(raw: dict) -> str:

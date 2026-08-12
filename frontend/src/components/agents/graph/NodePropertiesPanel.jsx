@@ -226,8 +226,20 @@ function JsonField({ label, value, onChange, placeholder = '{}', rows = 8 }) {
 
 // --- Parse node ---
 
-function ParseNodeEditor({ data, update, nodeId, allNodes, allEdges }) {
-  const slotVars = useUpstreamVariables(nodeId, allNodes, allEdges)
+function ParseNodeEditor({ data, update, nodeId, allNodes, allEdges, agentParameters }) {
+  const slotVars = useUpstreamVariables(nodeId, allNodes, allEdges, agentParameters)
+  // Which of this node's write targets are pre-fillable by agent parameters?
+  const paramWrites = new Set(
+    Object.keys(agentParameters?.properties || {}).map(
+      (n) => (agentParameters?.writes || {})[n] || n
+    )
+  )
+  const nodeWrites = data.mode === 'llm'
+    ? Object.values(data.writes || {}).length
+      ? Object.values(data.writes || {})
+      : Object.keys(data.output_schema || {})
+    : (data.extractors || []).map((x) => x.slot).filter(Boolean)
+  const coveredCount = nodeWrites.filter((s) => paramWrites.has(s)).length
   const promptRef = useRef(null)
   const insertAtCursor = (text) => {
     const ta = promptRef.current
@@ -250,6 +262,20 @@ function ParseNodeEditor({ data, update, nodeId, allNodes, allEdges }) {
       <TextField label="Node label" value={data.label} onChange={(v) => update('label', v)} />
       <SelectField label="Mode" value={data.mode} onChange={(v) => update('mode', v)}
         options={['regex', 'llm']} includeBlank={false} />
+
+      {coveredCount > 0 && (
+        <div className="rounded bg-emerald-50 border border-emerald-200 px-2.5 py-2 text-[11px] text-emerald-900 leading-relaxed">
+          {coveredCount}/{nodeWrites.length} of this parser's slots can be
+          pre-filled by agent parameters. Pre-filled slots are skipped on
+          entry (fewer LLM calls); on interrupt replies the parser always
+          runs in full, so corrections still work.
+        </div>
+      )}
+      <CheckboxField
+        label="Always run (never skip, even when agent parameters filled every slot)"
+        value={data.always_run}
+        onChange={(v) => update('always_run', v || undefined)}
+      />
 
       {data.mode === 'regex' && (
         <Section title="Extractors">
@@ -320,12 +346,12 @@ function ParseNodeEditor({ data, update, nodeId, allNodes, allEdges }) {
 
 // --- Condition node (dispatcher) ---
 
-function ConditionNodeEditor({ data, update, edges, reorderEdges, updateEdgePredicate, addEdge, nodeIds, nodeId, allNodes, allEdges }) {
+function ConditionNodeEditor({ data, update, edges, reorderEdges, updateEdgePredicate, addEdge, nodeIds, nodeId, allNodes, allEdges, agentParameters }) {
   const existingTargets = new Set((edges || []).map((e) => e.target))
   const candidates = [...(nodeIds || []).filter((id) => !existingTargets.has(id))]
   if (!existingTargets.has('END')) candidates.push('END')
   const [pickerOpen, setPickerOpen] = useState(false)
-  const slotVars = useUpstreamVariables(nodeId, allNodes, allEdges)
+  const slotVars = useUpstreamVariables(nodeId, allNodes, allEdges, agentParameters)
   return (
     <div className="space-y-3">
       <TextField label="Node label" value={data.label} onChange={(v) => update('label', v)} />
@@ -888,6 +914,25 @@ function InterruptNodeEditor({ data, update, slotNames, supportedChannels }) {
         value={data.targets_slot}
         onChange={(v) => update('targets_slot', v || null)}
         options={['', ...slotNames]} />
+      {data.targets_slot && (
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 mt-0.5"
+            checked={!!data.planner_fillable}
+            onChange={(e) => update('planner_fillable', e.target.checked || undefined)}
+          />
+          <span className="text-xs text-gray-700">
+            Planner may pre-fill this slot
+            <span className="block text-[11px] text-gray-500">
+              Allow an agent parameter to write this slot (the interrupt is
+              then skipped when the value arrived with the call). Leave OFF
+              for confirmation gates — an unchecked slot is structurally
+              unreachable to the orchestrator LLM.
+            </span>
+          </span>
+        </label>
+      )}
       <p className="text-[11px] text-gray-400 italic">
         Emits the prompt to the user, then pauses the inner graph. On the
         user's reply, the sub-agent re-runs from <code>entry_node</code>
@@ -901,9 +946,9 @@ function InterruptNodeEditor({ data, update, slotNames, supportedChannels }) {
 
 // --- LLM node (free-form) ---
 
-function LlmNodeEditor({ data, update, nodeId, allNodes, allEdges }) {
+function LlmNodeEditor({ data, update, nodeId, allNodes, allEdges, agentParameters }) {
   const includeContext = data.include_context !== false
-  const slotVars = useUpstreamVariables(nodeId, allNodes, allEdges)
+  const slotVars = useUpstreamVariables(nodeId, allNodes, allEdges, agentParameters)
   const promptRef = useRef(null)
   const insertAtCursor = (text) => {
     const ta = promptRef.current
@@ -955,9 +1000,17 @@ function LlmNodeEditor({ data, update, nodeId, allNodes, allEdges }) {
 // the author can actually rely on at runtime — references whose
 // upstream writer is reachable from the entry node and runs before the
 // current node.
-function useUpstreamVariables(currentNodeId, allNodes, allEdges) {
+function useUpstreamVariables(currentNodeId, allNodes, allEdges, agentParameters) {
   return useMemo(() => {
     if (!currentNodeId) return []
+    // Agent-level Planner parameters seed variables at entry — they're
+    // available to every node regardless of graph position.
+    const paramSlots = []
+    const props = agentParameters?.properties || {}
+    const writes = agentParameters?.writes || {}
+    for (const name of Object.keys(props)) {
+      paramSlots.push({ name: writes[name] || name, sourceNodeId: 'agent parameters' })
+    }
     const nodesById = new Map((allNodes || []).map((n) => [n.id, n]))
     const incomingBy = new Map()
     for (const e of allEdges || []) {
@@ -999,8 +1052,11 @@ function useUpstreamVariables(currentNodeId, allNodes, allEdges) {
         if (d.targets_slot && !slots.has(d.targets_slot)) slots.set(d.targets_slot, id)
       }
     }
+    for (const { name, sourceNodeId } of paramSlots) {
+      if (!slots.has(name)) slots.set(name, sourceNodeId)
+    }
     return Array.from(slots.entries()).map(([name, sourceNodeId]) => ({ name, sourceNodeId }))
-  }, [currentNodeId, allNodes, allEdges])
+  }, [currentNodeId, allNodes, allEdges, agentParameters])
 }
 
 
@@ -1332,12 +1388,12 @@ function ResponseNodeEditor({ data, update }) {
 
 // --- Edge editor ---
 
-function EdgeEditor({ edge, allEdges, allNodes, onEdgesUpdate, onClose }) {
+function EdgeEditor({ edge, allEdges, allNodes, agentParameters, onEdgesUpdate, onClose }) {
   const idx = (allEdges || []).findIndex((e) => e.id === edge.id)
   const total = (allEdges || []).length
   const sourceNode = (allNodes || []).find((n) => n.id === edge.source)
   const targetNode = (allNodes || []).find((n) => n.id === edge.target)
-  const slotVars = useUpstreamVariables(edge.source, allNodes, allEdges)
+  const slotVars = useUpstreamVariables(edge.source, allNodes, allEdges, agentParameters)
 
   const updateField = (field, value) => {
     const next = (allEdges || []).map((e) => e.id === edge.id ? { ...e, [field]: value } : e)
@@ -1391,7 +1447,7 @@ function EdgeEditor({ edge, allEdges, allNodes, onEdgesUpdate, onClose }) {
 
 // --- Main panel ---
 
-export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNodes, allEdges, agentName, supportedChannels, onUpdate, onEdgesUpdate }) {
+export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNodes, allEdges, agentName, agentParameters, supportedChannels, onUpdate, onEdgesUpdate }) {
   if (edge) {
     return (
       <div className="p-4 space-y-4 overflow-y-auto h-full">
@@ -1399,7 +1455,7 @@ export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNod
           <div className="text-[10px] uppercase tracking-wide text-gray-400 font-mono">edge</div>
           <h3 className="text-sm font-semibold text-gray-800 truncate">{edge.id}</h3>
         </div>
-        <EdgeEditor edge={edge} allEdges={allEdges} allNodes={allNodes} onEdgesUpdate={onEdgesUpdate} onClose={onEdgeDeselect} />
+        <EdgeEditor edge={edge} allEdges={allEdges} allNodes={allNodes} agentParameters={agentParameters} onEdgesUpdate={onEdgesUpdate} onClose={onEdgeDeselect} />
       </div>
     )
   }
@@ -1473,7 +1529,8 @@ export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNod
 
       {node.type === 'parse_node' && (
         <ParseNodeEditor data={node.data} update={update}
-          nodeId={node.id} allNodes={allNodes} allEdges={allEdges} />
+          nodeId={node.id} allNodes={allNodes} allEdges={allEdges}
+          agentParameters={agentParameters} />
       )}
       {node.type === 'condition_node' && (
         <ConditionNodeEditor data={node.data} update={update}
@@ -1484,7 +1541,8 @@ export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNod
           nodeIds={nodeIds}
           nodeId={node.id}
           allNodes={allNodes}
-          allEdges={allEdges} />
+          allEdges={allEdges}
+          agentParameters={agentParameters} />
       )}
       {node.type === 'tool_call_node' && (
         <ToolCallNodeEditor data={node.data} update={update} nodeIds={nodeIds} agentName={agentName} />
@@ -1497,7 +1555,8 @@ export default function NodePropertiesPanel({ node, edge, onEdgeDeselect, allNod
       )}
       {node.type === 'llm_node' && (
         <LlmNodeEditor data={node.data} update={update}
-          nodeId={node.id} allNodes={allNodes} allEdges={allEdges} />
+          nodeId={node.id} allNodes={allNodes} allEdges={allEdges}
+          agentParameters={agentParameters} />
       )}
       {node.type === 'tool_node' && (
         <ToolNodeEditor data={node.data} update={update} />
